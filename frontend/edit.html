@@ -32,8 +32,15 @@
     .warning { background: #fff8e1; border: 1px solid #f0c060; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.9rem; margin-bottom: 1rem; }
 
     #add-form { display: flex; gap: 0.5rem; margin: 1.5rem 0; }
-    #add-form input { flex: 1; padding: 0.65rem 0.9rem; font-size: 1rem; border: 1px solid #ddd; border-radius: 6px; outline: none; transition: border-color 0.15s; }
-    #add-form input:focus { border-color: #111; }
+    .search-wrap { position: relative; flex: 1; }
+    #url-input { width: 100%; padding: 0.65rem 0.9rem; font-size: 1rem; border: 1px solid #ddd; border-radius: 6px; outline: none; transition: border-color 0.15s; box-sizing: border-box; }
+    #url-input:focus { border-color: #111; }
+    #suggestions { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); z-index: 10; overflow: hidden; }
+    .suggestion { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem; cursor: pointer; }
+    .suggestion:hover { background: #f5f5f5; }
+    .suggestion img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+    .suggestion-title { font-weight: 500; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .suggestion-artist { color: #888; font-size: 0.8rem; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .btn-primary { padding: 0.65rem 1.1rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 6px; background: #111; color: #fff; font-weight: 500; display: flex; align-items: center; gap: 0.45rem; transition: opacity 0.15s; white-space: nowrap; }
     .btn-primary:hover { opacity: 0.85; }
 
@@ -79,7 +86,10 @@
   </div>
 
   <form id="add-form">
-    <input type="url" id="url-input" placeholder="Paste a Spotify, Apple Music, YouTube… URL" required>
+    <div class="search-wrap">
+      <input type="text" id="url-input" placeholder="Search for a song or paste a URL…" autocomplete="off">
+      <div id="suggestions" hidden></div>
+    </div>
     <button type="submit" class="btn-primary">
       <i class="fa-solid fa-plus"></i> Add
     </button>
@@ -314,15 +324,86 @@
       return div
     }
 
+    // --- Search / autocomplete ---
+    const urlInput = document.getElementById('url-input')
+    const suggestionsEl = document.getElementById('suggestions')
+    let pendingUrl = null  // set when a suggestion is selected
+    let searchResults = []
+    let searchTimer = null
+
+    function isUrl(val) {
+      return val.startsWith('http://') || val.startsWith('https://')
+    }
+
+    function hideSuggestions() {
+      suggestionsEl.hidden = true
+      searchResults = []
+    }
+
+    function renderSuggestions(results) {
+      searchResults = results
+      suggestionsEl.innerHTML = ''
+      for (const r of results) {
+        const item = document.createElement('div')
+        item.className = 'suggestion'
+        item.innerHTML = `
+          <img src="${safeUrl(r.artwork)}" alt="">
+          <div>
+            <div class="suggestion-title">${r.title}</div>
+            <div class="suggestion-artist">${r.artist}</div>
+          </div>`
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault() // keep focus on input so blur doesn't fire first
+          pendingUrl = r.url
+          urlInput.value = `${r.title} — ${r.artist}`
+          hideSuggestions()
+          document.getElementById('add-form').requestSubmit()
+        })
+        suggestionsEl.appendChild(item)
+      }
+      suggestionsEl.hidden = results.length === 0
+    }
+
+    urlInput.addEventListener('input', () => {
+      const val = urlInput.value.trim()
+      pendingUrl = isUrl(val) ? val : null
+      clearTimeout(searchTimer)
+      hideSuggestions()
+      if (!isUrl(val) && val.length >= 2) {
+        searchTimer = setTimeout(async () => {
+          try {
+            const lang = navigator.language || 'en-US'
+            const country = (lang.split('-')[1] ?? 'us').toLowerCase()
+            const res = await fetch(`/api/search?q=${encodeURIComponent(val)}&country=${country}`)
+            if (!res.ok) return
+            const data = await res.json()
+            renderSuggestions(data.results)
+          } catch { /* ignore */ }
+        }, 300)
+      }
+    })
+
+    urlInput.addEventListener('blur', () => {
+      setTimeout(hideSuggestions, 150)
+    })
+
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideSuggestions()
+    })
+
     // --- Add track (optimistic) ---
     document.getElementById('add-form').addEventListener('submit', async (e) => {
       e.preventDefault()
-      const urlInput = document.getElementById('url-input')
-      const url = urlInput.value.trim()
-      if (!url) return
+      const url = pendingUrl ?? (isUrl(urlInput.value.trim()) ? urlInput.value.trim() : searchResults[0]?.url)
+      if (!url) { setGlobalError('Select a result or paste a URL'); return }
+      setGlobalError('')
+
+      const displayLabel = urlInput.value.trim()
+      pendingUrl = null
+      hideSuggestions()
 
       const tempId = `pending-${crypto.randomUUID()}`
-      tracks.push({ id: tempId, url_original: url, odesli_data: null, pending: true })
+      tracks.push({ id: tempId, url_original: displayLabel, odesli_data: null, pending: true })
       renderTracks()
       urlInput.value = ''
       urlInput.focus()
