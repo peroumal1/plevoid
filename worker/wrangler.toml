@@ -24,5 +24,5 @@ binding = "ODESLI_QUEUE"
 [[queues.consumers]]
 queue = "plevoid-odesli-queue"
 max_batch_size = 10   # at most 10 Odesli calls per batch
-max_batch_timeout = 5  # 5s locally; set to 60 in production for ≤10 calls/min
+max_batch_timeout = 60  # ≤10 Odesli calls/min in production (use 5 locally)
 max_concurrency = 1   # one batch at a time
