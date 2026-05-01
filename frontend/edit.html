@@ -4,68 +4,88 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edit — Plevoid</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <style>
-    body { font-family: sans-serif; max-width: 680px; margin: 4rem auto; padding: 0 1rem; }
-    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-    a.home { font-size: 0.85rem; color: #888; }
-    a.public-link { font-size: 0.85rem; color: #555; }
+    [hidden] { display: none !important; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 680px; margin: 4rem auto; padding: 0 1.5rem; color: #111; }
+
+    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .nav a { font-size: 0.85rem; color: #888; text-decoration: none; display: flex; align-items: center; gap: 0.35rem; }
+    .nav a:hover { color: #111; }
+
     .title-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
     h1 { font-size: 1.8rem; margin: 0; }
-    button.rename-btn { background: none; border: none; cursor: pointer; color: #aaa; font-size: 1rem; padding: 0.2rem 0.3rem; line-height: 1; }
-    button.rename-btn:hover { color: #333; }
+    .btn-icon { background: none; border: none; cursor: pointer; color: #bbb; padding: 0.3rem 0.4rem; font-size: 0.95rem; border-radius: 4px; transition: color 0.15s, background 0.15s; }
+    .btn-icon:hover { color: #111; background: #f0f0f0; }
+    .btn-icon.danger:hover { color: #c00; background: #fdecea; }
+    .btn-icon.confirm { color: #2a9d5c; }
+    .btn-icon.confirm:hover { background: #edf7f2; }
+
     .title-edit { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
-    .title-edit input { font-size: 1.4rem; padding: 0.3rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; flex: 1; }
-    .title-edit button { padding: 0.4rem 0.8rem; font-size: 0.9rem; cursor: pointer; border: none; border-radius: 4px; }
-    .title-edit button.save { background: #111; color: #fff; }
-    .title-edit button.cancel { background: none; border: 1px solid #ccc; color: #555; }
+    .title-edit input { font-size: 1.3rem; padding: 0.35rem 0.6rem; border: 1px solid #ccc; border-radius: 6px; flex: 1; outline: none; }
+    .title-edit input:focus { border-color: #111; }
+
+    .warning { background: #fff8e1; border: 1px solid #f0c060; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.9rem; margin-bottom: 1rem; }
+
     #add-form { display: flex; gap: 0.5rem; margin: 1.5rem 0; }
-    #add-form input { flex: 1; padding: 0.6rem 0.8rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; }
-    button.add-btn { padding: 0.6rem 1.2rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; background: #111; color: #fff; }
-    .track { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid #eee; }
-    .track img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+    #add-form input { flex: 1; padding: 0.65rem 0.9rem; font-size: 1rem; border: 1px solid #ddd; border-radius: 6px; outline: none; transition: border-color 0.15s; }
+    #add-form input:focus { border-color: #111; }
+    .btn-primary { padding: 0.65rem 1.1rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 6px; background: #111; color: #fff; font-weight: 500; display: flex; align-items: center; gap: 0.45rem; transition: opacity 0.15s; white-space: nowrap; }
+    .btn-primary:hover { opacity: 0.85; }
+
+    .track { display: flex; align-items: center; gap: 1rem; padding: 0.85rem 0; border-bottom: 1px solid #eee; }
+    .track img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
     .track-info { flex: 1; min-width: 0; }
-    .track-title { font-weight: 600; }
-    .track-artist { color: #555; font-size: 0.9rem; }
-    .track-pending { color: #999; font-size: 0.9rem; font-style: italic; }
-    .track-raw a { word-break: break-all; color: #111; font-size: 0.9rem; }
-    button.remove { background: transparent; color: #c00; border: 1px solid #c00; padding: 0.25rem 0.6rem; font-size: 0.8rem; cursor: pointer; border-radius: 4px; }
-    button.remove:disabled { opacity: 0.4; cursor: not-allowed; }
-    .track-error { font-size: 0.8rem; color: #c00; margin-top: 0.2rem; }
-    #global-error { color: #c00; margin: 0.5rem 0; min-height: 1.2em; }
-    .warning { background: #fff8e1; border: 1px solid #f0c060; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.9rem; margin-bottom: 1rem; }
-    .empty { color: #888; }
+    .track-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-artist { color: #666; font-size: 0.88rem; margin-top: 0.1rem; }
+    .track-pending .track-url { font-size: 0.85rem; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-pending .track-status { font-size: 0.8rem; color: #bbb; margin-top: 0.15rem; display: flex; align-items: center; gap: 0.35rem; }
+    .track-raw a { word-break: break-all; color: #555; font-size: 0.88rem; }
+    .track-error { font-size: 0.8rem; color: #c00; margin-top: 0.25rem; }
+
+    #global-error { color: #c00; margin: 0.5rem 0; font-size: 0.9rem; min-height: 1.2em; }
+    .empty { color: #999; font-size: 0.95rem; }
   </style>
 </head>
 <body>
   <div class="nav">
-    <a class="home" href="/">← Plevoid</a>
-    <a class="public-link" id="public-link" href="#" hidden>Public view →</a>
+    <a href="/"><i class="fa-solid fa-arrow-left"></i> Plevoid</a>
+    <a id="public-link" href="#" hidden><i class="fa-solid fa-eye"></i> Public view</a>
   </div>
 
   <div class="title-row">
     <h1 id="title">Loading…</h1>
-    <button class="rename-btn" id="rename-btn" title="Rename playlist" hidden>✎</button>
+    <button class="btn-icon" id="rename-btn" title="Rename playlist" hidden>
+      <i class="fa-solid fa-pen"></i>
+    </button>
   </div>
   <div class="title-edit" id="title-edit" hidden>
     <input type="text" id="title-input" maxlength="100">
-    <button class="save" id="title-save">Save</button>
-    <button class="cancel" id="title-cancel">Cancel</button>
+    <button class="btn-icon confirm" id="title-save" title="Save">
+      <i class="fa-solid fa-check"></i>
+    </button>
+    <button class="btn-icon danger" id="title-cancel" title="Cancel">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
   </div>
 
   <div id="no-token" class="warning" hidden>
+    <i class="fa-solid fa-triangle-exclamation"></i>
     No edit token found. Open the edit link you saved when creating this playlist, or go back to <a href="/">your playlists</a>.
   </div>
 
   <form id="add-form">
     <input type="url" id="url-input" placeholder="Paste a Spotify, Apple Music, YouTube… URL" required>
-    <button type="submit" class="add-btn">Add track</button>
+    <button type="submit" class="btn-primary">
+      <i class="fa-solid fa-plus"></i> Add
+    </button>
   </form>
 
   <div id="global-error"></div>
   <div id="tracks"></div>
 
   <script>
-    // --- localStorage helpers ---
     function getStoredPlaylists() {
       try { return JSON.parse(localStorage.getItem('plevoid_playlists') || '[]') } catch { return [] }
     }
@@ -88,6 +108,7 @@
     }
 
     let tracks = []
+    let currentTitle = ''
 
     function safeUrl(url) {
       try {
@@ -100,19 +121,17 @@
       document.getElementById('global-error').textContent = msg || ''
     }
 
-    // --- Load playlist ---
     async function load() {
       try {
         const res = await fetch(`/api/playlists/${id}`)
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Not found')
 
+        currentTitle = data.title
         document.title = `Edit: ${data.title} — Plevoid`
         document.getElementById('title').textContent = data.title
-
-        const pubLink = document.getElementById('public-link')
-        pubLink.href = `/p/${id}`
-        pubLink.hidden = false
+        document.getElementById('public-link').href = `/p/${id}`
+        document.getElementById('public-link').hidden = false
 
         if (token) {
           savePlaylist(id, token, data.title)
@@ -127,22 +146,13 @@
       }
     }
 
-    // --- Rename playlist ---
-    let currentTitle = ''
-
+    // --- Rename ---
     document.getElementById('rename-btn').addEventListener('click', () => {
-      currentTitle = document.getElementById('title').textContent
       document.getElementById('title-input').value = currentTitle
-      document.getElementById('title-row')  // n/a, direct show/hide
       document.querySelector('.title-row').hidden = true
       document.getElementById('title-edit').hidden = false
       document.getElementById('title-input').focus()
       document.getElementById('title-input').select()
-    })
-
-    document.getElementById('title-cancel').addEventListener('click', cancelRename)
-    document.getElementById('title-input').addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') cancelRename()
     })
 
     function cancelRename() {
@@ -150,18 +160,20 @@
       document.getElementById('title-edit').hidden = true
     }
 
-    document.getElementById('title-save').addEventListener('click', saveRename)
+    document.getElementById('title-cancel').addEventListener('click', cancelRename)
     document.getElementById('title-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') cancelRename()
       if (e.key === 'Enter') saveRename()
     })
+    document.getElementById('title-save').addEventListener('click', saveRename)
 
     async function saveRename() {
       const newTitle = document.getElementById('title-input').value.trim()
       if (!newTitle || newTitle === currentTitle) { cancelRename(); return }
 
       const saveBtn = document.getElementById('title-save')
+      saveBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'
       saveBtn.disabled = true
-      saveBtn.textContent = 'Saving…'
 
       try {
         const res = await fetch(`/api/playlists/${id}`, {
@@ -172,6 +184,7 @@
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to rename')
 
+        currentTitle = data.title
         document.getElementById('title').textContent = data.title
         document.title = `Edit: ${data.title} — Plevoid`
         savePlaylist(id, token, data.title)
@@ -179,8 +192,8 @@
       } catch (err) {
         setGlobalError(err.message)
       } finally {
+        saveBtn.innerHTML = '<i class="fa-solid fa-check"></i>'
         saveBtn.disabled = false
-        saveBtn.textContent = 'Save'
       }
     }
 
@@ -188,36 +201,30 @@
     function renderTracks() {
       const container = document.getElementById('tracks')
       container.innerHTML = ''
-
       if (!tracks.length) {
         container.innerHTML = '<p class="empty">No tracks yet. Add one above.</p>'
         return
       }
-
-      for (const track of tracks) {
-        container.appendChild(renderTrack(track))
-      }
+      for (const track of tracks) container.appendChild(renderTrack(track))
     }
 
     function renderTrack(track) {
       const div = document.createElement('div')
       div.className = 'track'
-      div.dataset.trackId = track.id
-      const od = track.odesli_data
-
       const info = document.createElement('div')
       info.className = 'track-info'
 
       if (track.pending) {
-        // Optimistic placeholder — show URL while resolving
-        const pendingEl = document.createElement('div')
-        pendingEl.className = 'track-pending'
-        pendingEl.textContent = track.url_original
+        div.className += ' track-pending'
+        const urlEl = document.createElement('div')
+        urlEl.className = 'track-url'
+        urlEl.textContent = track.url_original
         const statusEl = document.createElement('div')
-        statusEl.className = 'track-pending'
-        statusEl.textContent = 'Resolving…'
-        info.append(pendingEl, statusEl)
-      } else if (od) {
+        statusEl.className = 'track-status'
+        statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Resolving…'
+        info.append(urlEl, statusEl)
+      } else if (track.odesli_data) {
+        const od = track.odesli_data
         const entity = od.entitiesByUniqueId?.[od.entityUniqueId] ?? {}
         if (entity.thumbnailUrl) {
           const img = document.createElement('img')
@@ -245,7 +252,7 @@
       if (track.error) {
         const errEl = document.createElement('div')
         errEl.className = 'track-error'
-        errEl.textContent = track.error
+        errEl.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${track.error}`
         info.appendChild(errEl)
       }
 
@@ -253,8 +260,9 @@
 
       if (token && !track.pending) {
         const btn = document.createElement('button')
-        btn.className = 'remove'
-        btn.textContent = 'Remove'
+        btn.className = 'btn-icon danger'
+        btn.title = 'Remove track'
+        btn.innerHTML = '<i class="fa-solid fa-trash"></i>'
         btn.addEventListener('click', () => removeTrack(track.id, btn))
         div.appendChild(btn)
       }
@@ -262,14 +270,13 @@
       return div
     }
 
-    // --- Add track (optimistic, non-blocking) ---
+    // --- Add track (optimistic) ---
     document.getElementById('add-form').addEventListener('submit', async (e) => {
       e.preventDefault()
       const urlInput = document.getElementById('url-input')
       const url = urlInput.value.trim()
       if (!url) return
 
-      // Add placeholder immediately so the user can keep adding
       const tempId = `pending-${crypto.randomUUID()}`
       tracks.push({ id: tempId, url_original: url, odesli_data: null, pending: true })
       renderTracks()
@@ -284,13 +291,10 @@
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to add track')
-
-        // Replace placeholder with real track
         const idx = tracks.findIndex(t => t.id === tempId)
         if (idx !== -1) tracks[idx] = data
         renderTracks()
       } catch (err) {
-        // Mark placeholder as failed
         const idx = tracks.findIndex(t => t.id === tempId)
         if (idx !== -1) tracks[idx] = { ...tracks[idx], pending: false, error: err.message }
         renderTracks()
