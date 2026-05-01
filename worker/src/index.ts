@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import type { Bindings, QueueMessage } from './types'
 import { playlistRoutes } from './routes/playlists'
 import { trackRoutes } from './routes/tracks'
+import { searchRoutes } from './routes/search'
 import { fetchOdesli } from './lib/odesli'
 import { updateTrackOdesli } from './lib/db'
 
@@ -11,6 +12,7 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use('*', cors())
 app.route('/api/playlists', playlistRoutes)
 app.route('/api/playlists', trackRoutes)
+app.route('/api/search', searchRoutes)
 
 app.get('/p/:id', (c) =>
   c.env.ASSETS.fetch(new Request(new URL('/playlist.html', c.req.url).toString()))
