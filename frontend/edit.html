@@ -121,6 +121,44 @@
       document.getElementById('global-error').textContent = msg || ''
     }
 
+    // --- Odesli polling ---
+    // Tracks saved to D1 without odesli_data while the queue resolves them.
+    // Poll every 5s until all are enriched or we give up after 5 min.
+    let pollTimer = null
+
+    function needsOdesli() {
+      return tracks.some(t => !t.pending && !t.error && t.odesli_data === null)
+    }
+
+    async function pollOdesli() {
+      if (!needsOdesli()) { stopPolling(); return }
+      try {
+        const res = await fetch(`/api/playlists/${id}`)
+        if (!res.ok) return
+        const data = await res.json()
+        let changed = false
+        for (const fresh of data.tracks) {
+          if (!fresh.odesli_data) continue
+          const idx = tracks.findIndex(t => t.id === fresh.id && t.odesli_data === null)
+          if (idx !== -1) { tracks[idx] = fresh; changed = true }
+        }
+        if (changed) renderTracks()
+        if (!needsOdesli()) stopPolling()
+      } catch { /* ignore transient errors, keep polling */ }
+    }
+
+    function startPolling() {
+      if (pollTimer) return
+      pollTimer = setInterval(pollOdesli, 5000)
+      // safety: stop after 5 min regardless
+      setTimeout(stopPolling, 5 * 60 * 1000)
+    }
+
+    function stopPolling() {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+
     async function load() {
       try {
         const res = await fetch(`/api/playlists/${id}`)
@@ -140,6 +178,7 @@
 
         tracks = data.tracks
         renderTracks()
+        if (needsOdesli()) startPolling()
       } catch (err) {
         document.getElementById('title').textContent = 'Error'
         setGlobalError(err.message)
@@ -240,13 +279,15 @@
         artistEl.textContent = entity.artistName ?? ''
         info.append(titleEl, artistEl)
       } else {
-        div.className += ' track-raw'
-        const a = document.createElement('a')
-        a.href = safeUrl(track.url_original)
-        a.target = '_blank'
-        a.rel = 'noopener'
-        a.textContent = track.url_original
-        info.appendChild(a)
+        // Real track saved to D1 but queue hasn't resolved Odesli yet
+        div.className += ' track-pending'
+        const urlEl = document.createElement('div')
+        urlEl.className = 'track-url'
+        urlEl.textContent = track.url_original
+        const statusEl = document.createElement('div')
+        statusEl.className = 'track-status'
+        statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Fetching metadata…'
+        info.append(urlEl, statusEl)
       }
 
       if (track.error) {
@@ -294,6 +335,7 @@
         const idx = tracks.findIndex(t => t.id === tempId)
         if (idx !== -1) tracks[idx] = data
         renderTracks()
+        startPolling()
       } catch (err) {
         const idx = tracks.findIndex(t => t.id === tempId)
         if (idx !== -1) tracks[idx] = { ...tracks[idx], pending: false, error: err.message }

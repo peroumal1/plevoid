@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
 import { getPlaylistForEdit, insertTrack, deleteTrack } from '../lib/db'
-import { fetchOdesli } from '../lib/odesli'
 import { parseMusicUrl, SUPPORTED_PLATFORMS } from '../lib/validate'
 
 export const trackRoutes = new Hono<{ Bindings: Bindings }>()
@@ -37,13 +36,13 @@ trackRoutes.post('/:id/tracks', async (c) => {
     )
   }
   const url = parsed.href
-
-  const odesli = await fetchOdesli(url, c.env.ODESLI_API_KEY)
   const trackId = crypto.randomUUID()
 
-  await insertTrack(c.env.DB, trackId, check.playlist.id, url, odesli ? JSON.stringify(odesli) : null)
+  // Insert immediately with null odesli_data, resolve asynchronously via queue
+  await insertTrack(c.env.DB, trackId, check.playlist.id, url, null)
+  await c.env.ODESLI_QUEUE.send({ trackId, url })
 
-  return c.json({ id: trackId, url_original: url, odesli_data: odesli }, 201)
+  return c.json({ id: trackId, url_original: url, odesli_data: null }, 201)
 })
 
 trackRoutes.delete('/:id/tracks/:trackId', async (c) => {

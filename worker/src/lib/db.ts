@@ -77,6 +77,17 @@ export async function insertTrack(
     .run()
 }
 
+export async function updateTrackOdesli(
+  db: D1Database,
+  id: string,
+  odesli_data: string
+): Promise<void> {
+  await db
+    .prepare('UPDATE tracks SET odesli_data = ? WHERE id = ?')
+    .bind(odesli_data, id)
+    .run()
+}
+
 export async function deleteTrack(
   db: D1Database,
   id: string,

@@ -16,3 +16,13 @@ binding = "ASSETS"
 binding = "DB"
 database_name = "plevoid-db"
 database_id = "00000000-0000-0000-0000-000000000000" # replace after: wrangler d1 create plevoid-db
+
+[[queues.producers]]
+queue = "plevoid-odesli-queue"
+binding = "ODESLI_QUEUE"
+
+[[queues.consumers]]
+queue = "plevoid-odesli-queue"
+max_batch_size = 10   # at most 10 Odesli calls per batch
+max_batch_timeout = 5  # 5s locally; set to 60 in production for ≤10 calls/min
+max_concurrency = 1   # one batch at a time
