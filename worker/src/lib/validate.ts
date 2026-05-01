@@ -1,4 +1,3 @@
-// Exact hostnames accepted as music URLs
 const ALLOWED_HOSTS = new Set([
   'open.spotify.com',
   'music.apple.com',
@@ -24,14 +23,35 @@ const ALLOWED_HOSTS = new Set([
   'audius.co',
 ])
 
-// Bandcamp uses per-artist subdomains: artist.bandcamp.com
 function isBandcamp(hostname: string): boolean {
   return hostname === 'bandcamp.com' || hostname.endsWith('.bandcamp.com')
 }
 
+// Query params that are meaningful per hostname — everything else is stripped.
+// Absence of an entry means strip all params.
+const KEEP_PARAMS: Record<string, Set<string>> = {
+  'youtube.com':       new Set(['v', 't']),  // video ID and optional timestamp
+  'www.youtube.com':   new Set(['v', 't']),
+  'music.youtube.com': new Set(['v']),
+  'music.apple.com':   new Set(['i']),        // track within an album page
+}
+
+function stripTracking(url: URL): URL {
+  const keep = KEEP_PARAMS[url.hostname]
+  if (!keep && url.search === '') return url
+
+  const clean = new URL(url.toString())
+  const toDelete: string[] = []
+  clean.searchParams.forEach((_, key) => {
+    if (!keep || !keep.has(key)) toDelete.push(key)
+  })
+  toDelete.forEach(k => clean.searchParams.delete(k))
+  return clean
+}
+
 /**
- * Returns a parsed URL if the input is a valid HTTPS music platform link,
- * or null if it should be rejected.
+ * Validates and sanitises a music platform URL.
+ * Returns the cleaned URL (tracking params removed) or null if invalid.
  */
 export function parseMusicUrl(raw: string): URL | null {
   let url: URL
@@ -41,8 +61,8 @@ export function parseMusicUrl(raw: string): URL | null {
     return null
   }
   if (url.protocol !== 'https:') return null
-  if (ALLOWED_HOSTS.has(url.hostname) || isBandcamp(url.hostname)) return url
-  return null
+  if (!ALLOWED_HOSTS.has(url.hostname) && !isBandcamp(url.hostname)) return null
+  return stripTracking(url)
 }
 
 export const SUPPORTED_PLATFORMS =
