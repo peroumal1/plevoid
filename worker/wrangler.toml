@@ -1,0 +1,14 @@
+name = "plevoid-worker"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Static frontend served alongside the worker.
+# Worker handles /api/* and SPA rewrites; everything else falls through to assets.
+[assets]
+directory = "../frontend"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "plevoid-db"
+database_id = "00000000-0000-0000-0000-000000000000" # replace after: wrangler d1 create plevoid-db

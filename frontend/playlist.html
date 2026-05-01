@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plevoid</title>
+  <style>
+    body { font-family: sans-serif; max-width: 680px; margin: 4rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    .track { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid #eee; }
+    .track img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+    .track-info { flex: 1; min-width: 0; }
+    .track-title { font-weight: 600; }
+    .track-artist { color: #555; font-size: 0.9rem; }
+    .track-links { margin-top: 0.3rem; font-size: 0.85rem; }
+    .track-links a { color: #111; margin-right: 0.5rem; }
+    .track-raw a { word-break: break-all; color: #111; font-size: 0.9rem; }
+    #error { color: #c00; }
+    .empty { color: #888; margin-top: 2rem; }
+    a.home { font-size: 0.85rem; color: #888; }
+  </style>
+</head>
+<body>
+  <a class="home" href="/">← Plevoid</a>
+  <h1 id="title">Loading…</h1>
+  <div id="tracks"></div>
+  <div id="error" hidden></div>
+
+  <script>
+    const id = window.location.pathname.split('/').filter(Boolean).pop()
+
+    function safeUrl(url) {
+      try {
+        const u = new URL(url)
+        return (u.protocol === 'https:' || u.protocol === 'http:') ? url : '#'
+      } catch { return '#' }
+    }
+
+    function text(str) {
+      const el = document.createElement('span')
+      el.textContent = str
+      return el.innerHTML
+    }
+
+    async function load() {
+      try {
+        const res = await fetch(`/api/playlists/${id}`)
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Not found')
+
+        document.title = `${data.title} — Plevoid`
+        document.getElementById('title').textContent = data.title
+
+        const container = document.getElementById('tracks')
+
+        if (!data.tracks.length) {
+          container.innerHTML = '<p class="empty">No tracks yet.</p>'
+          return
+        }
+
+        for (const track of data.tracks) {
+          container.appendChild(renderTrack(track))
+        }
+      } catch (err) {
+        document.getElementById('title').textContent = 'Error'
+        const errorEl = document.getElementById('error')
+        errorEl.textContent = err.message
+        errorEl.hidden = false
+      }
+    }
+
+    function renderTrack(track) {
+      const div = document.createElement('div')
+      div.className = 'track'
+      const od = track.odesli_data
+
+      if (od) {
+        const entity = od.entitiesByUniqueId[od.entityUniqueId] ?? {}
+        const platforms = ['spotify', 'appleMusic', 'youtube', 'deezer', 'tidal', 'soundcloud']
+        const links = platforms
+          .filter(p => od.linksByPlatform?.[p])
+          .map(p => `<a href="${safeUrl(od.linksByPlatform[p].url)}" target="_blank" rel="noopener">${text(p)}</a>`)
+          .join('')
+
+        if (entity.thumbnailUrl) {
+          const img = document.createElement('img')
+          img.src = safeUrl(entity.thumbnailUrl)
+          img.alt = ''
+          div.appendChild(img)
+        }
+
+        const info = document.createElement('div')
+        info.className = 'track-info'
+        info.innerHTML = `
+          <div class="track-title">${text(entity.title ?? 'Unknown')}</div>
+          <div class="track-artist">${text(entity.artistName ?? '')}</div>
+          <div class="track-links">
+            ${od.pageUrl ? `<a href="${safeUrl(od.pageUrl)}" target="_blank" rel="noopener">song.link</a>` : ''}
+            ${links}
+          </div>`
+        div.appendChild(info)
+      } else {
+        div.className += ' track-raw'
+        const info = document.createElement('div')
+        info.className = 'track-info'
+        const a = document.createElement('a')
+        a.href = safeUrl(track.url_original)
+        a.target = '_blank'
+        a.rel = 'noopener'
+        a.textContent = track.url_original
+        info.appendChild(a)
+        div.appendChild(info)
+      }
+
+      return div
+    }
+
+    load()
+  </script>
+</body>
+</html>

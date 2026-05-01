@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit — Plevoid</title>
+  <style>
+    body { font-family: sans-serif; max-width: 680px; margin: 4rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    #add-form { display: flex; gap: 0.5rem; margin: 1.5rem 0; }
+    #add-form input { flex: 1; padding: 0.6rem 0.8rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 0.6rem 1.2rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; background: #111; color: #fff; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.remove { background: transparent; color: #c00; border: 1px solid #c00; padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+    .track { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid #eee; }
+    .track img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+    .track-info { flex: 1; min-width: 0; }
+    .track-title { font-weight: 600; }
+    .track-artist { color: #555; font-size: 0.9rem; }
+    .track-raw a { word-break: break-all; color: #111; font-size: 0.9rem; }
+    #error { color: #c00; margin: 0.5rem 0; min-height: 1.2em; }
+    .warning { background: #fff8e1; border: 1px solid #f0c060; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.9rem; margin-bottom: 1rem; }
+    a.home { font-size: 0.85rem; color: #888; }
+    .empty { color: #888; }
+  </style>
+</head>
+<body>
+  <a class="home" href="/">← Plevoid</a>
+  <h1 id="title">Loading…</h1>
+
+  <div id="no-token" class="warning" hidden>
+    No edit token found. Open the edit URL you saved when creating this playlist.
+  </div>
+
+  <form id="add-form">
+    <input type="url" id="url-input" placeholder="Paste a Spotify, Apple Music, YouTube… URL" required>
+    <button type="submit" id="add-btn">Add track</button>
+  </form>
+
+  <div id="error"></div>
+  <div id="tracks"></div>
+
+  <script>
+    const id = window.location.pathname.split('/').filter(Boolean).pop()
+    const token = new URLSearchParams(window.location.search).get('token')
+    let tracks = []
+
+    if (!token) {
+      document.getElementById('no-token').hidden = false
+      document.getElementById('add-form').hidden = true
+    }
+
+    function safeUrl(url) {
+      try {
+        const u = new URL(url)
+        return (u.protocol === 'https:' || u.protocol === 'http:') ? url : '#'
+      } catch { return '#' }
+    }
+
+    function setError(msg) {
+      document.getElementById('error').textContent = msg || ''
+    }
+
+    async function load() {
+      try {
+        const res = await fetch(`/api/playlists/${id}`)
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Not found')
+        document.title = `Edit: ${data.title} — Plevoid`
+        document.getElementById('title').textContent = `Edit: ${data.title}`
+        tracks = data.tracks
+        renderTracks()
+      } catch (err) {
+        document.getElementById('title').textContent = 'Error'
+        setError(err.message)
+      }
+    }
+
+    function renderTracks() {
+      const container = document.getElementById('tracks')
+      container.innerHTML = ''
+
+      if (!tracks.length) {
+        container.innerHTML = '<p class="empty">No tracks yet. Add one above.</p>'
+        return
+      }
+
+      for (const track of tracks) {
+        container.appendChild(renderTrack(track))
+      }
+    }
+
+    function renderTrack(track) {
+      const div = document.createElement('div')
+      div.className = 'track'
+      const od = track.odesli_data
+
+      const info = document.createElement('div')
+      info.className = 'track-info'
+
+      if (od) {
+        const entity = od.entitiesByUniqueId?.[od.entityUniqueId] ?? {}
+        if (entity.thumbnailUrl) {
+          const img = document.createElement('img')
+          img.src = safeUrl(entity.thumbnailUrl)
+          img.alt = ''
+          div.appendChild(img)
+        }
+        const titleEl = document.createElement('div')
+        titleEl.className = 'track-title'
+        titleEl.textContent = entity.title ?? 'Unknown'
+        const artistEl = document.createElement('div')
+        artistEl.className = 'track-artist'
+        artistEl.textContent = entity.artistName ?? ''
+        info.append(titleEl, artistEl)
+      } else {
+        div.className += ' track-raw'
+        const a = document.createElement('a')
+        a.href = safeUrl(track.url_original)
+        a.target = '_blank'
+        a.rel = 'noopener'
+        a.textContent = track.url_original
+        info.appendChild(a)
+      }
+
+      div.appendChild(info)
+
+      if (token) {
+        const btn = document.createElement('button')
+        btn.className = 'remove'
+        btn.textContent = 'Remove'
+        btn.addEventListener('click', () => removeTrack(track.id, btn))
+        div.appendChild(btn)
+      }
+
+      return div
+    }
+
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const addBtn = document.getElementById('add-btn')
+      const urlInput = document.getElementById('url-input')
+      addBtn.disabled = true
+      addBtn.textContent = 'Adding…'
+      setError('')
+
+      try {
+        const res = await fetch(`/api/playlists/${id}/tracks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
+          body: JSON.stringify({ url: urlInput.value.trim() }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to add track')
+        tracks.push(data)
+        renderTracks()
+        urlInput.value = ''
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        addBtn.disabled = false
+        addBtn.textContent = 'Add track'
+      }
+    })
+
+    async function removeTrack(trackId, btn) {
+      btn.disabled = true
+      setError('')
+      try {
+        const res = await fetch(`/api/playlists/${id}/tracks/${trackId}`, {
+          method: 'DELETE',
+          headers: { 'X-Edit-Token': token },
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to remove')
+        tracks = tracks.filter(t => t.id !== trackId)
+        renderTracks()
+      } catch (err) {
+        setError(err.message)
+        btn.disabled = false
+      }
+    }
+
+    load()
+  </script>
+</body>
+</html>
