@@ -17,9 +17,17 @@
     .url-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
     .url-row code { flex: 1; font-size: 0.8rem; overflow-wrap: anywhere; background: #e8e8e8; padding: 0.3rem 0.5rem; border-radius: 3px; }
     .url-row button { font-size: 0.8rem; padding: 0.3rem 0.6rem; background: #555; }
-    .links { margin-top: 1rem; display: flex; gap: 1rem; }
-    .links a { color: #111; }
+    .result-links { margin-top: 1rem; display: flex; gap: 1rem; }
+    .result-links a { color: #111; }
     #error { margin-top: 1rem; color: #c00; }
+    #your-playlists { margin-top: 3rem; border-top: 1px solid #eee; padding-top: 1.5rem; }
+    #your-playlists h2 { font-size: 1rem; color: #888; margin: 0 0 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .pl-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; }
+    .pl-item-title { flex: 1; font-weight: 500; color: #111; text-decoration: none; }
+    .pl-item-title:hover { text-decoration: underline; }
+    .pl-item a.pub { font-size: 0.85rem; color: #888; }
+    button.remove-pl { background: none; border: none; color: #bbb; font-size: 0.85rem; padding: 0.2rem 0.4rem; cursor: pointer; }
+    button.remove-pl:hover { color: #c00; }
   </style>
 </head>
 <body>
@@ -33,12 +41,12 @@
 
   <div id="result" hidden>
     <h2>Playlist created!</h2>
-    <p><strong>Save your edit link</strong> — it won't be shown again:</p>
+    <p><strong>Save your edit link</strong> — use it to edit from another device:</p>
     <div class="url-row">
       <code id="edit-url"></code>
       <button id="copy-btn">Copy</button>
     </div>
-    <div class="links">
+    <div class="result-links">
       <a id="go-edit" href="#">Edit playlist →</a>
       <a id="go-public" href="#">Public view →</a>
     </div>
@@ -46,7 +54,66 @@
 
   <div id="error" hidden></div>
 
+  <section id="your-playlists" hidden>
+    <h2>Your playlists</h2>
+    <div id="playlist-list"></div>
+  </section>
+
   <script>
+    // --- localStorage helpers ---
+    function getStoredPlaylists() {
+      try { return JSON.parse(localStorage.getItem('plevoid_playlists') || '[]') } catch { return [] }
+    }
+    function savePlaylist(id, token, title) {
+      const list = getStoredPlaylists().filter(p => p.id !== id)
+      list.unshift({ id, token, title, createdAt: Date.now() })
+      localStorage.setItem('plevoid_playlists', JSON.stringify(list))
+    }
+    function removeStoredPlaylist(id) {
+      const list = getStoredPlaylists().filter(p => p.id !== id)
+      localStorage.setItem('plevoid_playlists', JSON.stringify(list))
+    }
+
+    // --- Your playlists ---
+    function renderStoredPlaylists() {
+      const list = getStoredPlaylists()
+      const section = document.getElementById('your-playlists')
+      const container = document.getElementById('playlist-list')
+      if (!list.length) { section.hidden = true; return }
+
+      container.innerHTML = ''
+      for (const pl of list) {
+        const row = document.createElement('div')
+        row.className = 'pl-item'
+
+        const titleLink = document.createElement('a')
+        titleLink.className = 'pl-item-title'
+        titleLink.href = `/edit/${pl.id}`
+        titleLink.textContent = pl.title || pl.id
+
+        const pubLink = document.createElement('a')
+        pubLink.className = 'pub'
+        pubLink.href = `/p/${pl.id}`
+        pubLink.textContent = 'Public view'
+        pubLink.target = '_blank'
+        pubLink.rel = 'noopener'
+
+        const removeBtn = document.createElement('button')
+        removeBtn.className = 'remove-pl'
+        removeBtn.title = 'Remove from list'
+        removeBtn.textContent = '✕'
+        removeBtn.addEventListener('click', () => {
+          removeStoredPlaylist(pl.id)
+          renderStoredPlaylists()
+        })
+
+        row.append(titleLink, pubLink, removeBtn)
+        container.appendChild(row)
+      }
+      section.hidden = false
+    }
+
+    // --- Create form ---
     const form = document.getElementById('create-form')
     const submitBtn = document.getElementById('submit-btn')
     const resultEl = document.getElementById('result')
@@ -58,20 +125,24 @@
       submitBtn.textContent = 'Creating…'
       errorEl.hidden = true
 
+      const title = document.getElementById('title').value.trim()
       try {
         const res = await fetch('/api/playlists', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: document.getElementById('title').value.trim() }),
+          body: JSON.stringify({ title }),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to create playlist')
 
+        savePlaylist(data.id, data.edit_token, title)
+
         document.getElementById('edit-url').textContent = data.edit_url
-        document.getElementById('go-edit').href = data.edit_url
+        document.getElementById('go-edit').href = `/edit/${data.id}`
         document.getElementById('go-public').href = data.public_url
         form.hidden = true
         resultEl.hidden = false
+        renderStoredPlaylists()
       } catch (err) {
         errorEl.textContent = err.message
         errorEl.hidden = false
@@ -87,6 +158,8 @@
         setTimeout(() => { btn.textContent = 'Copy' }, 2000)
       })
     })
+
+    renderStoredPlaylists()
   </script>
 </body>
 </html>

@@ -17,17 +17,37 @@
     .track-raw a { word-break: break-all; color: #111; font-size: 0.9rem; }
     #error { color: #c00; }
     .empty { color: #888; margin-top: 2rem; }
+    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
     a.home { font-size: 0.85rem; color: #888; }
+    a.edit-link { font-size: 0.85rem; color: #555; }
   </style>
 </head>
 <body>
-  <a class="home" href="/">← Plevoid</a>
+  <div class="nav">
+    <a class="home" href="/">← Plevoid</a>
+    <a class="edit-link" id="edit-link" href="#" hidden>Edit →</a>
+  </div>
   <h1 id="title">Loading…</h1>
   <div id="tracks"></div>
   <div id="error" hidden></div>
 
   <script>
+    // --- localStorage helpers ---
+    function getStoredPlaylists() {
+      try { return JSON.parse(localStorage.getItem('plevoid_playlists') || '[]') } catch { return [] }
+    }
+    function getStoredToken(id) {
+      return getStoredPlaylists().find(p => p.id === id)?.token ?? null
+    }
+
     const id = window.location.pathname.split('/').filter(Boolean).pop()
+    const storedToken = getStoredToken(id)
+
+    if (storedToken) {
+      const editLink = document.getElementById('edit-link')
+      editLink.href = `/edit/${id}`
+      editLink.hidden = false
+    }
 
     function safeUrl(url) {
       try {
@@ -54,7 +74,9 @@
         const container = document.getElementById('tracks')
 
         if (!data.tracks.length) {
-          container.innerHTML = '<p class="empty">No tracks yet.</p>'
+          container.innerHTML = storedToken
+            ? '<p class="empty">No tracks yet. <a href="/edit/' + id + '">Add some →</a></p>'
+            : '<p class="empty">No tracks yet.</p>'
           return
         }
 
