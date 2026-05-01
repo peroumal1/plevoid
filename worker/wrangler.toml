@@ -22,6 +22,9 @@ database_id = "f0edc246-996c-4b64-8c0f-a6192d9f2590"
 queue = "plevoid-odesli-queue"
 binding = "ODESLI_QUEUE"
 
+[triggers]
+crons = ["0 3 * * 0"]  # every Sunday at 3am UTC
+
 [[queues.consumers]]
 queue = "plevoid-odesli-queue"
 max_batch_size = 10   # at most 10 Odesli calls per batch

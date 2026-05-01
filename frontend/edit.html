@@ -56,6 +56,7 @@
 
     #global-error { color: #c00; margin: 0.5rem 0; font-size: 0.9rem; min-height: 1.2em; }
     .empty { color: #999; font-size: 0.95rem; }
+    .retention-notice { margin-top: 3rem; font-size: 0.8rem; color: #bbb; text-align: center; }
   </style>
 </head>
 <body>
@@ -97,6 +98,7 @@
 
   <div id="global-error"></div>
   <div id="tracks"></div>
+  <p class="retention-notice">Playlists are limited to 50 tracks and deleted after 90 days of inactivity.</p>
 
   <script>
     function getStoredPlaylists() {
@@ -372,9 +374,7 @@
       if (!isUrl(val) && val.length >= 2) {
         searchTimer = setTimeout(async () => {
           try {
-            const lang = navigator.language || 'en-US'
-            const country = (lang.split('-')[1] ?? 'us').toLowerCase()
-            const res = await fetch(`/api/search?q=${encodeURIComponent(val)}&country=${country}`)
+            const res = await fetch(`/api/search?q=${encodeURIComponent(val)}`)
             if (!res.ok) return
             const data = await res.json()
             renderSuggestions(data.results)

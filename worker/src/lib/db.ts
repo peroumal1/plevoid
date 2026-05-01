@@ -41,6 +41,13 @@ export async function createPlaylist(
     .run()
 }
 
+export async function updateLastAccessed(db: D1Database, id: string): Promise<void> {
+  await db
+    .prepare('UPDATE playlists SET last_accessed_at = ? WHERE id = ?')
+    .bind(Math.floor(Date.now() / 1000), id)
+    .run()
+}
+
 export async function updatePlaylistTitle(
   db: D1Database,
   id: string,
@@ -86,6 +93,22 @@ export async function updateTrackOdesli(
     .prepare('UPDATE tracks SET odesli_data = ? WHERE id = ?')
     .bind(odesli_data, id)
     .run()
+}
+
+export async function getTrackCount(db: D1Database, playlist_id: string): Promise<number> {
+  const result = await db
+    .prepare('SELECT COUNT(*) as count FROM tracks WHERE playlist_id = ?')
+    .bind(playlist_id)
+    .first<{ count: number }>()
+  return result?.count ?? 0
+}
+
+export async function deleteOldPlaylists(db: D1Database, cutoff: number): Promise<number> {
+  const results = await db.batch([
+    db.prepare('DELETE FROM tracks WHERE playlist_id IN (SELECT id FROM playlists WHERE COALESCE(last_accessed_at, created_at) < ?)').bind(cutoff),
+    db.prepare('DELETE FROM playlists WHERE COALESCE(last_accessed_at, created_at) < ?').bind(cutoff),
+  ])
+  return results[1].meta.changes
 }
 
 export async function deleteTrack(

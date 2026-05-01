@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
-import { createPlaylist, getPlaylist, getPlaylistForEdit, getTracks, updatePlaylistTitle } from '../lib/db'
+import { createPlaylist, getPlaylist, getPlaylistForEdit, getTracks, updatePlaylistTitle, updateLastAccessed } from '../lib/db'
 
 export const playlistRoutes = new Hono<{ Bindings: Bindings }>()
 
@@ -36,6 +36,7 @@ playlistRoutes.get('/:id', async (c) => {
   const playlist = await getPlaylist(c.env.plevoid_db, c.req.param('id'))
   if (!playlist) return c.json({ error: 'not found' }, 404)
 
+  await updateLastAccessed(c.env.plevoid_db, playlist.id)
   const tracks = await getTracks(c.env.plevoid_db, playlist.id)
   return c.json({
     ...playlist,

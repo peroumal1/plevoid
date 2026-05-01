@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
-import { getPlaylistForEdit, insertTrack, deleteTrack } from '../lib/db'
+import { getPlaylistForEdit, insertTrack, deleteTrack, getTrackCount } from '../lib/db'
 import { parseMusicUrl, SUPPORTED_PLATFORMS } from '../lib/validate'
 
 export const trackRoutes = new Hono<{ Bindings: Bindings }>()
@@ -35,6 +35,9 @@ trackRoutes.post('/:id/tracks', async (c) => {
       400
     )
   }
+  const count = await getTrackCount(c.env.plevoid_db, check.playlist.id)
+  if (count >= 50) return c.json({ error: 'playlist limit reached (50 tracks maximum)' }, 400)
+
   const url = parsed.href
   const trackId = crypto.randomUUID()
 
