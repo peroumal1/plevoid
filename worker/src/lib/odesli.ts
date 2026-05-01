@@ -10,13 +10,10 @@ export type OdesliData = {
 }
 
 export async function fetchOdesli(url: string, apiKey?: string): Promise<OdesliData | null> {
-  try {
-    const qs = new URLSearchParams({ url })
-    if (apiKey) qs.set('key', apiKey)
-    const res = await fetch(`https://api.song.link/v1-alpha.1/links?${qs}`)
-    if (!res.ok) return null
-    return res.json() as Promise<OdesliData>
-  } catch {
-    return null
-  }
+  const qs = new URLSearchParams({ url })
+  if (apiKey) qs.set('key', apiKey)
+  const res = await fetch(`https://api.song.link/v1-alpha.1/links?${qs}`)
+  if (res.status === 404) return null  // confirmed not found on any platform
+  if (!res.ok) throw new Error(`Odesli ${res.status}`)  // transient — queue will retry
+  return res.json() as Promise<OdesliData>
 }
