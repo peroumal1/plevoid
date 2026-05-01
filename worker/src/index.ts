@@ -24,8 +24,11 @@ export default {
   fetch: app.fetch.bind(app),
 
   async queue(batch: MessageBatch<QueueMessage>, env: Bindings): Promise<void> {
-    for (const msg of batch.messages) {
+    for (let i = 0; i < batch.messages.length; i++) {
+      const msg = batch.messages[i]
       const { trackId, url } = msg.body
+      // 6s between calls keeps a full batch of 10 under the 10 req/min anonymous limit
+      if (i > 0) await new Promise(r => setTimeout(r, 6000))
       try {
         const odesli = await fetchOdesli(url, env.ODESLI_API_KEY)
         if (odesli) {
