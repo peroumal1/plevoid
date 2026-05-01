@@ -12,10 +12,11 @@ binding = "ASSETS"
 # [vars]
 # ODESLI_API_KEY = "your-key-here"
 
+
 [[d1_databases]]
-binding = "DB"
+binding = "plevoid_db"
 database_name = "plevoid-db"
-database_id = "00000000-0000-0000-0000-000000000000" # replace after: wrangler d1 create plevoid-db
+database_id = "f0edc246-996c-4b64-8c0f-a6192d9f2590"
 
 [[queues.producers]]
 queue = "plevoid-odesli-queue"

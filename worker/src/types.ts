@@ -4,7 +4,7 @@ export type QueueMessage = {
 }
 
 export type Bindings = {
-  DB: D1Database
+  plevoid_db: D1Database
   ASSETS: Fetcher
   ODESLI_API_KEY?: string
   ODESLI_QUEUE: Queue<QueueMessage>
