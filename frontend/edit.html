@@ -330,6 +330,22 @@
       div.appendChild(info)
 
       if (token && !track.pending) {
+        if (track.odesli_data?._notFound) {
+          const editBtn = document.createElement('button')
+          editBtn.className = 'btn-icon'
+          editBtn.title = 'Edit URL'
+          editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>'
+          editBtn.addEventListener('click', async () => {
+            const url = track.url_original
+            editBtn.disabled = true
+            await removeTrack(track.id, editBtn)
+            pendingUrl = url
+            urlInput.value = url
+            urlInput.focus()
+            urlInput.select()
+          })
+          div.appendChild(editBtn)
+        }
         const btn = document.createElement('button')
         btn.className = 'btn-icon danger'
         btn.title = 'Remove track'
