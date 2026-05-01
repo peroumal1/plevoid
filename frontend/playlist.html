@@ -163,7 +163,7 @@
       div.className = 'track'
       const od = track.odesli_data
 
-      if (od) {
+      if (od && !od._notFound) {
         const entity = od.entitiesByUniqueId[od.entityUniqueId] ?? {}
 
         if (entity.thumbnailUrl) {

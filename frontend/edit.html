@@ -148,6 +148,10 @@
       return tracks.some(t => !t.pending && !t.error && t.odesli_data === null)
     }
 
+    function isResolved(t) {
+      return t.odesli_data !== null  // includes _notFound — either way, no longer pending
+    }
+
     async function pollOdesli() {
       if (!needsOdesli()) { stopPolling(); return }
       try {
@@ -280,6 +284,14 @@
         statusEl.className = 'track-status'
         statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Resolving…'
         info.append(urlEl, statusEl)
+      } else if (track.odesli_data?._notFound) {
+        const urlEl = document.createElement('div')
+        urlEl.className = 'track-url'
+        urlEl.textContent = track.url_original
+        const noteEl = document.createElement('div')
+        noteEl.className = 'track-status'
+        noteEl.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Not found on any platform'
+        info.append(urlEl, noteEl)
       } else if (track.odesli_data) {
         const od = track.odesli_data
         const entity = od.entitiesByUniqueId?.[od.entityUniqueId] ?? {}

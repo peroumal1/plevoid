@@ -39,9 +39,7 @@ export default {
       if (i > 0) await new Promise(r => setTimeout(r, 6000))
       try {
         const odesli = await fetchOdesli(url, env.ODESLI_API_KEY)
-        if (odesli) {
-          await updateTrackOdesli(env.plevoid_db, trackId, JSON.stringify(odesli))
-        }
+        await updateTrackOdesli(env.plevoid_db, trackId, JSON.stringify(odesli ?? { _notFound: true }))
         msg.ack()
       } catch {
         msg.retry()
