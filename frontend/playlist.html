@@ -4,35 +4,44 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plevoid</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <style>
-    body { font-family: sans-serif; max-width: 680px; margin: 4rem auto; padding: 0 1rem; }
-    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
-    .track { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid #eee; }
-    .track img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+    [hidden] { display: none !important; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 680px; margin: 4rem auto; padding: 0 1.5rem; color: #111; }
+
+    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .nav a { font-size: 0.85rem; color: #888; text-decoration: none; display: flex; align-items: center; gap: 0.35rem; }
+    .nav a:hover { color: #111; }
+
+    h1 { font-size: 1.8rem; margin: 0 0 1.5rem; }
+
+    .track { display: flex; align-items: center; gap: 1rem; padding: 0.85rem 0; border-bottom: 1px solid #eee; }
+    .track img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
     .track-info { flex: 1; min-width: 0; }
-    .track-title { font-weight: 600; }
-    .track-artist { color: #555; font-size: 0.9rem; }
-    .track-links { margin-top: 0.3rem; font-size: 0.85rem; }
-    .track-links a { color: #111; margin-right: 0.5rem; }
-    .track-raw a { word-break: break-all; color: #111; font-size: 0.9rem; }
+    .track-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-artist { color: #666; font-size: 0.88rem; margin-top: 0.1rem; }
+    .platform-links { display: flex; gap: 0.6rem; margin-top: 0.5rem; flex-wrap: wrap; }
+    .platform-links a { color: #888; font-size: 1.1rem; text-decoration: none; transition: color 0.15s; }
+    .platform-links a:hover { color: #111; }
+    .platform-links a.songlink { font-size: 0.75rem; font-weight: 500; color: #aaa; display: flex; align-items: center; gap: 0.2rem; }
+    .platform-links a.songlink:hover { color: #555; }
+    .track-raw a { word-break: break-all; color: #555; font-size: 0.88rem; }
     #error { color: #c00; }
-    .empty { color: #888; margin-top: 2rem; }
-    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-    a.home { font-size: 0.85rem; color: #888; }
-    a.edit-link { font-size: 0.85rem; color: #555; }
+    .empty { color: #999; font-size: 0.95rem; margin-top: 1rem; }
+    .empty a { color: #555; }
   </style>
 </head>
 <body>
   <div class="nav">
-    <a class="home" href="/">← Plevoid</a>
-    <a class="edit-link" id="edit-link" href="#" hidden>Edit →</a>
+    <a href="/"><i class="fa-solid fa-arrow-left"></i> Plevoid</a>
+    <a id="edit-link" href="#" hidden><i class="fa-solid fa-pen"></i> Edit</a>
   </div>
   <h1 id="title">Loading…</h1>
   <div id="tracks"></div>
   <div id="error" hidden></div>
 
   <script>
-    // --- localStorage helpers ---
     function getStoredPlaylists() {
       try { return JSON.parse(localStorage.getItem('plevoid_playlists') || '[]') } catch { return [] }
     }
@@ -44,9 +53,9 @@
     const storedToken = getStoredToken(id)
 
     if (storedToken) {
-      const editLink = document.getElementById('edit-link')
-      editLink.href = `/edit/${id}`
-      editLink.hidden = false
+      const el = document.getElementById('edit-link')
+      el.href = `/edit/${id}`
+      el.hidden = false
     }
 
     function safeUrl(url) {
@@ -56,10 +65,30 @@
       } catch { return '#' }
     }
 
-    function text(str) {
-      const el = document.createElement('span')
-      el.textContent = str
-      return el.innerHTML
+    // Brand icon class per platform; falls back to fa-music
+    const PLATFORM_ICONS = {
+      spotify:      'fa-brands fa-spotify',
+      appleMusic:   'fa-brands fa-apple',
+      youtube:      'fa-brands fa-youtube',
+      deezer:       'fa-brands fa-deezer',
+      soundcloud:   'fa-brands fa-soundcloud',
+      amazonMusic:  'fa-brands fa-amazon',
+      bandcamp:     'fa-brands fa-bandcamp',
+      tidal:        'fa-solid fa-music',
+      napster:      'fa-solid fa-music',
+      anghami:      'fa-solid fa-music',
+      boomplay:     'fa-solid fa-music',
+      pandora:      'fa-solid fa-music',
+      audius:       'fa-solid fa-music',
+      yandex:       'fa-solid fa-music',
+    }
+
+    const PLATFORM_LABELS = {
+      spotify: 'Spotify', appleMusic: 'Apple Music', youtube: 'YouTube',
+      deezer: 'Deezer', soundcloud: 'SoundCloud', amazonMusic: 'Amazon Music',
+      tidal: 'Tidal', bandcamp: 'Bandcamp', napster: 'Napster',
+      anghami: 'Anghami', boomplay: 'Boomplay', pandora: 'Pandora',
+      audius: 'Audius', yandex: 'Yandex Music',
     }
 
     async function load() {
@@ -72,22 +101,18 @@
         document.getElementById('title').textContent = data.title
 
         const container = document.getElementById('tracks')
-
         if (!data.tracks.length) {
           container.innerHTML = storedToken
-            ? '<p class="empty">No tracks yet. <a href="/edit/' + id + '">Add some →</a></p>'
+            ? `<p class="empty">No tracks yet. <a href="/edit/${id}">Add some →</a></p>`
             : '<p class="empty">No tracks yet.</p>'
           return
         }
-
-        for (const track of data.tracks) {
-          container.appendChild(renderTrack(track))
-        }
+        for (const track of data.tracks) container.appendChild(renderTrack(track))
       } catch (err) {
         document.getElementById('title').textContent = 'Error'
-        const errorEl = document.getElementById('error')
-        errorEl.textContent = err.message
-        errorEl.hidden = false
+        const el = document.getElementById('error')
+        el.textContent = err.message
+        el.hidden = false
       }
     }
 
@@ -98,11 +123,6 @@
 
       if (od) {
         const entity = od.entitiesByUniqueId[od.entityUniqueId] ?? {}
-        const platforms = ['spotify', 'appleMusic', 'youtube', 'deezer', 'tidal', 'soundcloud']
-        const links = platforms
-          .filter(p => od.linksByPlatform?.[p])
-          .map(p => `<a href="${safeUrl(od.linksByPlatform[p].url)}" target="_blank" rel="noopener">${text(p)}</a>`)
-          .join('')
 
         if (entity.thumbnailUrl) {
           const img = document.createElement('img')
@@ -113,13 +133,45 @@
 
         const info = document.createElement('div')
         info.className = 'track-info'
-        info.innerHTML = `
-          <div class="track-title">${text(entity.title ?? 'Unknown')}</div>
-          <div class="track-artist">${text(entity.artistName ?? '')}</div>
-          <div class="track-links">
-            ${od.pageUrl ? `<a href="${safeUrl(od.pageUrl)}" target="_blank" rel="noopener">song.link</a>` : ''}
-            ${links}
-          </div>`
+
+        const titleEl = document.createElement('div')
+        titleEl.className = 'track-title'
+        titleEl.textContent = entity.title ?? 'Unknown'
+
+        const artistEl = document.createElement('div')
+        artistEl.className = 'track-artist'
+        artistEl.textContent = entity.artistName ?? ''
+
+        const linksEl = document.createElement('div')
+        linksEl.className = 'platform-links'
+
+        // song.link universal link first
+        if (od.pageUrl) {
+          const a = document.createElement('a')
+          a.href = safeUrl(od.pageUrl)
+          a.target = '_blank'
+          a.rel = 'noopener'
+          a.className = 'songlink'
+          a.title = 'Open on song.link'
+          a.innerHTML = '<i class="fa-solid fa-link"></i> song.link'
+          linksEl.appendChild(a)
+        }
+
+        // Platform icons
+        for (const [platform, { url }] of Object.entries(od.linksByPlatform ?? {})) {
+          if (platform === 'amazonStore') continue // skip purchase link
+          const iconClass = PLATFORM_ICONS[platform] ?? 'fa-solid fa-music'
+          const label = PLATFORM_LABELS[platform] ?? platform
+          const a = document.createElement('a')
+          a.href = safeUrl(url)
+          a.target = '_blank'
+          a.rel = 'noopener'
+          a.title = label
+          a.innerHTML = `<i class="${iconClass}"></i>`
+          linksEl.appendChild(a)
+        }
+
+        info.append(titleEl, artistEl, linksEl)
         div.appendChild(info)
       } else {
         div.className += ' track-raw'

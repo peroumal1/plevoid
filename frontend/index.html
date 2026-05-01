@@ -4,30 +4,45 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plevoid</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 4rem auto; padding: 0 1rem; }
+    [hidden] { display: none !important; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 4rem auto; padding: 0 1.5rem; color: #111; }
     h1 { font-size: 2rem; margin-bottom: 0.25rem; }
-    p.tagline { color: #666; margin-top: 0; }
-    form { display: flex; gap: 0.5rem; margin-top: 2rem; }
-    input[type=text] { flex: 1; padding: 0.6rem 0.8rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; }
-    button { padding: 0.6rem 1.2rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; background: #111; color: #fff; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    #result { margin-top: 2rem; padding: 1rem; background: #f5f5f5; border-radius: 6px; }
-    #result h2 { margin-top: 0; font-size: 1.1rem; }
-    .url-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
-    .url-row code { flex: 1; font-size: 0.8rem; overflow-wrap: anywhere; background: #e8e8e8; padding: 0.3rem 0.5rem; border-radius: 3px; }
-    .url-row button { font-size: 0.8rem; padding: 0.3rem 0.6rem; background: #555; }
-    .result-links { margin-top: 1rem; display: flex; gap: 1rem; }
-    .result-links a { color: #111; }
-    #error { margin-top: 1rem; color: #c00; }
+    p.tagline { color: #666; margin-top: 0; margin-bottom: 2rem; }
+
+    /* Create form */
+    form { display: flex; gap: 0.5rem; }
+    input[type=text] { flex: 1; padding: 0.65rem 0.9rem; font-size: 1rem; border: 1px solid #ddd; border-radius: 6px; outline: none; transition: border-color 0.15s; }
+    input[type=text]:focus { border-color: #111; }
+    .btn-primary { padding: 0.65rem 1.3rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 6px; background: #111; color: #fff; font-weight: 500; transition: opacity 0.15s; display: flex; align-items: center; gap: 0.5rem; }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Result */
+    #result { margin-top: 2rem; padding: 1.25rem; background: #f7f7f7; border-radius: 8px; border: 1px solid #e8e8e8; }
+    #result h2 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+    #result p { margin: 0 0 0.75rem; font-size: 0.9rem; color: #555; }
+    .url-row { display: flex; align-items: center; gap: 0.5rem; }
+    .url-row code { flex: 1; font-size: 0.78rem; overflow-wrap: anywhere; background: #ebebeb; padding: 0.4rem 0.6rem; border-radius: 4px; }
+    .btn-icon { background: none; border: none; cursor: pointer; color: #888; padding: 0.35rem 0.4rem; font-size: 0.95rem; border-radius: 4px; transition: color 0.15s, background 0.15s; }
+    .btn-icon:hover { color: #111; background: #e8e8e8; }
+    .btn-icon.danger:hover { color: #c00; background: #fdecea; }
+    .result-links { margin-top: 1rem; display: flex; gap: 1.25rem; }
+    .result-links a { color: #111; font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem; text-decoration: none; }
+    .result-links a:hover { text-decoration: underline; }
+
+    #error { margin-top: 1rem; color: #c00; font-size: 0.9rem; }
+
+    /* Your playlists */
     #your-playlists { margin-top: 3rem; border-top: 1px solid #eee; padding-top: 1.5rem; }
-    #your-playlists h2 { font-size: 1rem; color: #888; margin: 0 0 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    .pl-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; }
-    .pl-item-title { flex: 1; font-weight: 500; color: #111; text-decoration: none; }
+    #your-playlists h2 { font-size: 0.75rem; color: #999; margin: 0 0 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+    .pl-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid #f0f0f0; }
+    .pl-item-title { flex: 1; font-weight: 500; color: #111; text-decoration: none; font-size: 0.95rem; }
     .pl-item-title:hover { text-decoration: underline; }
-    .pl-item a.pub { font-size: 0.85rem; color: #888; }
-    button.remove-pl { background: none; border: none; color: #bbb; font-size: 0.85rem; padding: 0.2rem 0.4rem; cursor: pointer; }
-    button.remove-pl:hover { color: #c00; }
+    .pl-item-pub { font-size: 0.8rem; color: #999; text-decoration: none; display: flex; align-items: center; gap: 0.3rem; }
+    .pl-item-pub:hover { color: #111; }
   </style>
 </head>
 <body>
@@ -36,19 +51,23 @@
 
   <form id="create-form">
     <input type="text" id="title" placeholder="Playlist title" required autocomplete="off" maxlength="100">
-    <button type="submit" id="submit-btn">Create</button>
+    <button type="submit" id="submit-btn" class="btn-primary">
+      <i class="fa-solid fa-plus"></i> Create
+    </button>
   </form>
 
   <div id="result" hidden>
     <h2>Playlist created!</h2>
-    <p><strong>Save your edit link</strong> — use it to edit from another device:</p>
+    <p>Save your edit link — use it to edit from another device:</p>
     <div class="url-row">
       <code id="edit-url"></code>
-      <button id="copy-btn">Copy</button>
+      <button id="copy-btn" class="btn-icon" title="Copy edit link">
+        <i class="fa-regular fa-copy"></i>
+      </button>
     </div>
     <div class="result-links">
-      <a id="go-edit" href="#">Edit playlist →</a>
-      <a id="go-public" href="#">Public view →</a>
+      <a id="go-edit" href="#"><i class="fa-solid fa-pen"></i> Edit playlist</a>
+      <a id="go-public" href="#"><i class="fa-solid fa-eye"></i> Public view</a>
     </div>
   </div>
 
@@ -60,7 +79,6 @@
   </section>
 
   <script>
-    // --- localStorage helpers ---
     function getStoredPlaylists() {
       try { return JSON.parse(localStorage.getItem('plevoid_playlists') || '[]') } catch { return [] }
     }
@@ -70,11 +88,10 @@
       localStorage.setItem('plevoid_playlists', JSON.stringify(list))
     }
     function removeStoredPlaylist(id) {
-      const list = getStoredPlaylists().filter(p => p.id !== id)
-      localStorage.setItem('plevoid_playlists', JSON.stringify(list))
+      localStorage.setItem('plevoid_playlists',
+        JSON.stringify(getStoredPlaylists().filter(p => p.id !== id)))
     }
 
-    // --- Your playlists ---
     function renderStoredPlaylists() {
       const list = getStoredPlaylists()
       const section = document.getElementById('your-playlists')
@@ -92,16 +109,16 @@
         titleLink.textContent = pl.title || pl.id
 
         const pubLink = document.createElement('a')
-        pubLink.className = 'pub'
+        pubLink.className = 'pl-item-pub'
         pubLink.href = `/p/${pl.id}`
-        pubLink.textContent = 'Public view'
         pubLink.target = '_blank'
         pubLink.rel = 'noopener'
+        pubLink.innerHTML = '<i class="fa-solid fa-eye"></i> Public'
 
         const removeBtn = document.createElement('button')
-        removeBtn.className = 'remove-pl'
+        removeBtn.className = 'btn-icon danger'
         removeBtn.title = 'Remove from list'
-        removeBtn.textContent = '✕'
+        removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>'
         removeBtn.addEventListener('click', () => {
           removeStoredPlaylist(pl.id)
           renderStoredPlaylists()
@@ -113,7 +130,6 @@
       section.hidden = false
     }
 
-    // --- Create form ---
     const form = document.getElementById('create-form')
     const submitBtn = document.getElementById('submit-btn')
     const resultEl = document.getElementById('result')
@@ -122,7 +138,7 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault()
       submitBtn.disabled = true
-      submitBtn.textContent = 'Creating…'
+      submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Creating…'
       errorEl.hidden = true
 
       const title = document.getElementById('title').value.trim()
@@ -136,7 +152,6 @@
         if (!res.ok) throw new Error(data.error || 'Failed to create playlist')
 
         savePlaylist(data.id, data.edit_token, title)
-
         document.getElementById('edit-url').textContent = data.edit_url
         document.getElementById('go-edit').href = `/edit/${data.id}`
         document.getElementById('go-public').href = data.public_url
@@ -147,15 +162,19 @@
         errorEl.textContent = err.message
         errorEl.hidden = false
         submitBtn.disabled = false
-        submitBtn.textContent = 'Create'
+        submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Create'
       }
     })
 
     document.getElementById('copy-btn').addEventListener('click', () => {
       const btn = document.getElementById('copy-btn')
       navigator.clipboard.writeText(document.getElementById('edit-url').textContent).then(() => {
-        btn.textContent = 'Copied!'
-        setTimeout(() => { btn.textContent = 'Copy' }, 2000)
+        btn.innerHTML = '<i class="fa-solid fa-check"></i>'
+        btn.style.color = '#2a9d5c'
+        setTimeout(() => {
+          btn.innerHTML = '<i class="fa-regular fa-copy"></i>'
+          btn.style.color = ''
+        }, 2000)
       })
     })
 
