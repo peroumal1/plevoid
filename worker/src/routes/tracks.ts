@@ -38,7 +38,7 @@ trackRoutes.post('/:id/tracks', async (c) => {
   }
   const url = parsed.href
 
-  const odesli = await fetchOdesli(url)
+  const odesli = await fetchOdesli(url, c.env.ODESLI_API_KEY)
   const trackId = crypto.randomUUID()
 
   await insertTrack(c.env.DB, trackId, check.playlist.id, url, odesli ? JSON.stringify(odesli) : null)
