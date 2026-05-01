@@ -5,7 +5,7 @@ import { playlistRoutes } from './routes/playlists'
 import { trackRoutes } from './routes/tracks'
 import { searchRoutes } from './routes/search'
 import { fetchOdesli } from './lib/odesli'
-import { updateTrackOdesli } from './lib/db'
+import { updateTrackOdesli, deleteOldPlaylists } from './lib/db'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -24,6 +24,12 @@ app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw))
 
 export default {
   fetch: app.fetch.bind(app),
+
+  async scheduled(_event: ScheduledEvent, env: Bindings): Promise<void> {
+    const cutoff = Math.floor(Date.now() / 1000) - 90 * 24 * 60 * 60
+    const deleted = await deleteOldPlaylists(env.plevoid_db, cutoff)
+    console.log(`Retention: deleted ${deleted} playlists older than 90 days`)
+  },
 
   async queue(batch: MessageBatch<QueueMessage>, env: Bindings): Promise<void> {
     for (let i = 0; i < batch.messages.length; i++) {
