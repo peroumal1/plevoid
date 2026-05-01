@@ -11,8 +11,7 @@
     [hidden] { display: none !important; }
     * { box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; max-width: 600px; margin: 4rem auto; padding: 0 1.5rem; color: #111; }
-    h1 { font-size: 2rem; margin-bottom: 0.25rem; }
-    p.tagline { color: #666; margin-top: 0; margin-bottom: 2rem; }
+    .logo { display: block; width: 100%; margin-bottom: 2rem; }
 
     /* Create form */
     form { display: flex; gap: 0.5rem; }
@@ -48,8 +47,7 @@
   </style>
 </head>
 <body>
-  <h1>Plevoid</h1>
-  <p class="tagline">Create a shareable music playlist. No account needed.</p>
+  <img src="/logo.png" alt="Plevoid — anonymous playlists" class="logo">
 
   <form id="create-form">
     <input type="text" id="title" placeholder="Playlist title" required autocomplete="off" maxlength="100">
