@@ -9,11 +9,11 @@ export type OdesliData = {
   }>
 }
 
-export async function fetchOdesli(url: string): Promise<OdesliData | null> {
+export async function fetchOdesli(url: string, apiKey?: string): Promise<OdesliData | null> {
   try {
-    const res = await fetch(
-      `https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(url)}`
-    )
+    const qs = new URLSearchParams({ url })
+    if (apiKey) qs.set('key', apiKey)
+    const res = await fetch(`https://api.song.link/v1-alpha.1/links?${qs}`)
     if (!res.ok) return null
     return res.json() as Promise<OdesliData>
   } catch {

@@ -8,6 +8,10 @@ compatibility_date = "2024-11-01"
 directory = "../frontend"
 binding = "ASSETS"
 
+# Uncomment and set after obtaining a key from song.link
+# [vars]
+# ODESLI_API_KEY = "your-key-here"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "plevoid-db"
