@@ -26,7 +26,7 @@ playlistRoutes.post('/', async (c) => {
       id,
       edit_token,
       public_url: `${origin}/p/${id}`,
-      edit_url: `${origin}/edit/${id}?token=${edit_token}`,
+      edit_url: `${origin}/edit/${id}#token=${edit_token}`,
     },
     201
   )

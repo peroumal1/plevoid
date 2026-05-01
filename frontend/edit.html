@@ -112,7 +112,7 @@
     }
 
     const id = window.location.pathname.split('/').filter(Boolean).pop()
-    const tokenFromUrl = new URLSearchParams(window.location.search).get('token')
+    const tokenFromUrl = new URLSearchParams(window.location.hash.slice(1)).get('token')
     const token = tokenFromUrl ?? getStoredToken(id)
 
     if (!token) {
