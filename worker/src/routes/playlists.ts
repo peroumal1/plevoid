@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
-import { createPlaylist, getPlaylist, getTracks } from '../lib/db'
+import { createPlaylist, getPlaylist, getPlaylistForEdit, getTracks, updatePlaylistTitle } from '../lib/db'
 
 export const playlistRoutes = new Hono<{ Bindings: Bindings }>()
 
@@ -46,4 +46,20 @@ playlistRoutes.get('/:id', async (c) => {
       added_at: t.added_at,
     })),
   })
+})
+
+playlistRoutes.patch('/:id', async (c) => {
+  const token = c.req.header('X-Edit-Token')
+  const playlist = await getPlaylistForEdit(c.env.DB, c.req.param('id'))
+  if (!playlist) return c.json({ error: 'not found' }, 404)
+  if (!token || playlist.edit_token !== token) return c.json({ error: 'forbidden' }, 403)
+
+  let body: { title?: string }
+  try { body = await c.req.json() } catch { return c.json({ error: 'invalid JSON' }, 400) }
+
+  const title = body.title?.trim()
+  if (!title) return c.json({ error: 'title required' }, 400)
+
+  await updatePlaylistTitle(c.env.DB, playlist.id, title)
+  return c.json({ id: playlist.id, title })
 })
