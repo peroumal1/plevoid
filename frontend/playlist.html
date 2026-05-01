@@ -99,28 +99,31 @@
       } catch { return '#' }
     }
 
-    // Brand icon class per platform; falls back to fa-music
+    // FA brand icon class per platform; null = use text abbreviation
     const PLATFORM_ICONS = {
       spotify:      'fa-brands fa-spotify',
       appleMusic:   'fa-brands fa-apple',
+      itunes:       'fa-brands fa-apple',        // iTunes purchase — same Apple icon
       youtube:      'fa-brands fa-youtube',
+      youtubeMusic: 'fa-brands fa-youtube',
       deezer:       'fa-brands fa-deezer',
       soundcloud:   'fa-brands fa-soundcloud',
       amazonMusic:  'fa-brands fa-amazon',
       bandcamp:     'fa-brands fa-bandcamp',
-      tidal:        'fa-solid fa-music',
-      napster:      'fa-solid fa-music',
-      anghami:      'fa-solid fa-music',
-      boomplay:     'fa-solid fa-music',
-      pandora:      'fa-solid fa-music',
-      audius:       'fa-solid fa-music',
-      yandex:       'fa-solid fa-music',
+      tidal:        null,
+      napster:      null,
+      anghami:      null,
+      boomplay:     null,
+      pandora:      null,
+      audius:       null,
+      yandex:       null,
     }
 
     const PLATFORM_LABELS = {
-      spotify: 'Spotify', appleMusic: 'Apple Music', youtube: 'YouTube',
+      spotify: 'Spotify', appleMusic: 'Apple Music', itunes: 'iTunes',
+      youtube: 'YouTube', youtubeMusic: 'YouTube Music',
       deezer: 'Deezer', soundcloud: 'SoundCloud', amazonMusic: 'Amazon Music',
-      tidal: 'Tidal', bandcamp: 'Bandcamp', napster: 'Napster',
+      bandcamp: 'Bandcamp', tidal: 'Tidal', napster: 'Napster',
       anghami: 'Anghami', boomplay: 'Boomplay', pandora: 'Pandora',
       audius: 'Audius', yandex: 'Yandex Music',
     }
@@ -196,7 +199,8 @@
         // Platform icons
         for (const [platform, { url }] of Object.entries(od.linksByPlatform ?? {})) {
           if (platform === 'amazonStore') continue // skip purchase link
-          const iconClass = PLATFORM_ICONS[platform] ?? 'fa-solid fa-music'
+          const iconClass = PLATFORM_ICONS[platform]
+          if (!iconClass) continue // skip platforms without a brand icon; song.link covers them
           const label = PLATFORM_LABELS[platform] ?? platform
           const a = document.createElement('a')
           a.href = safeUrl(url)
