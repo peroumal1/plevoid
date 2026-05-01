@@ -15,7 +15,8 @@ searchRoutes.get('/', async (c) => {
   const q = c.req.query('q')?.trim() ?? ''
   if (q.length < 2) return c.json({ results: [] })
 
-  const country = c.req.header('CF-IPCountry')?.toLowerCase() ?? 'us'
+  const cf = c.req.raw.cf as { country?: string } | undefined
+  const country = (cf?.country ?? 'us').toLowerCase()
   const qs = new URLSearchParams({ term: q, media: 'music', entity: 'song', limit: '5', country })
   const res = await fetch(`https://itunes.apple.com/search?${qs}`)
   if (!res.ok) return c.json({ results: [] })
