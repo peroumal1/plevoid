@@ -18,7 +18,7 @@ playlistRoutes.post('/', async (c) => {
   const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
   const edit_token = crypto.randomUUID()
 
-  await createPlaylist(c.env.DB, id, edit_token, title)
+  await createPlaylist(c.env.plevoid_db, id, edit_token, title)
 
   const origin = new URL(c.req.url).origin
   return c.json(
@@ -33,10 +33,10 @@ playlistRoutes.post('/', async (c) => {
 })
 
 playlistRoutes.get('/:id', async (c) => {
-  const playlist = await getPlaylist(c.env.DB, c.req.param('id'))
+  const playlist = await getPlaylist(c.env.plevoid_db, c.req.param('id'))
   if (!playlist) return c.json({ error: 'not found' }, 404)
 
-  const tracks = await getTracks(c.env.DB, playlist.id)
+  const tracks = await getTracks(c.env.plevoid_db, playlist.id)
   return c.json({
     ...playlist,
     tracks: tracks.map((t) => ({
@@ -50,7 +50,7 @@ playlistRoutes.get('/:id', async (c) => {
 
 playlistRoutes.patch('/:id', async (c) => {
   const token = c.req.header('X-Edit-Token')
-  const playlist = await getPlaylistForEdit(c.env.DB, c.req.param('id'))
+  const playlist = await getPlaylistForEdit(c.env.plevoid_db, c.req.param('id'))
   if (!playlist) return c.json({ error: 'not found' }, 404)
   if (!token || playlist.edit_token !== token) return c.json({ error: 'forbidden' }, 403)
 
@@ -60,6 +60,6 @@ playlistRoutes.patch('/:id', async (c) => {
   const title = body.title?.trim()
   if (!title) return c.json({ error: 'title required' }, 400)
 
-  await updatePlaylistTitle(c.env.DB, playlist.id, title)
+  await updatePlaylistTitle(c.env.plevoid_db, playlist.id, title)
   return c.json({ id: playlist.id, title })
 })

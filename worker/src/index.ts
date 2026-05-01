@@ -29,7 +29,7 @@ export default {
       try {
         const odesli = await fetchOdesli(url, env.ODESLI_API_KEY)
         if (odesli) {
-          await updateTrackOdesli(env.DB, trackId, JSON.stringify(odesli))
+          await updateTrackOdesli(env.plevoid_db, trackId, JSON.stringify(odesli))
         }
         msg.ack()
       } catch {

@@ -18,7 +18,7 @@ async function verifyToken(
 }
 
 trackRoutes.post('/:id/tracks', async (c) => {
-  const check = await verifyToken(c.env.DB, c.req.param('id'), c.req.header('X-Edit-Token'))
+  const check = await verifyToken(c.env.plevoid_db, c.req.param('id'), c.req.header('X-Edit-Token'))
   if ('err' in check) return c.json({ error: check.err }, check.status)
 
   let body: { url?: string }
@@ -39,17 +39,17 @@ trackRoutes.post('/:id/tracks', async (c) => {
   const trackId = crypto.randomUUID()
 
   // Insert immediately with null odesli_data, resolve asynchronously via queue
-  await insertTrack(c.env.DB, trackId, check.playlist.id, url, null)
+  await insertTrack(c.env.plevoid_db, trackId, check.playlist.id, url, null)
   await c.env.ODESLI_QUEUE.send({ trackId, url })
 
   return c.json({ id: trackId, url_original: url, odesli_data: null }, 201)
 })
 
 trackRoutes.delete('/:id/tracks/:trackId', async (c) => {
-  const check = await verifyToken(c.env.DB, c.req.param('id'), c.req.header('X-Edit-Token'))
+  const check = await verifyToken(c.env.plevoid_db, c.req.param('id'), c.req.header('X-Edit-Token'))
   if ('err' in check) return c.json({ error: check.err }, check.status)
 
-  const deleted = await deleteTrack(c.env.DB, c.req.param('trackId'), check.playlist.id)
+  const deleted = await deleteTrack(c.env.plevoid_db, c.req.param('trackId'), check.playlist.id)
   if (!deleted) return c.json({ error: 'track not found' }, 404)
 
   return c.json({ success: true })
