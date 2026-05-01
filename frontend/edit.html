@@ -6,23 +6,33 @@
   <title>Edit — Plevoid</title>
   <style>
     body { font-family: sans-serif; max-width: 680px; margin: 4rem auto; padding: 0 1rem; }
-    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    a.home { font-size: 0.85rem; color: #888; }
+    a.public-link { font-size: 0.85rem; color: #555; }
+    .title-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+    h1 { font-size: 1.8rem; margin: 0; }
+    button.rename-btn { background: none; border: none; cursor: pointer; color: #aaa; font-size: 1rem; padding: 0.2rem 0.3rem; line-height: 1; }
+    button.rename-btn:hover { color: #333; }
+    .title-edit { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+    .title-edit input { font-size: 1.4rem; padding: 0.3rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; flex: 1; }
+    .title-edit button { padding: 0.4rem 0.8rem; font-size: 0.9rem; cursor: pointer; border: none; border-radius: 4px; }
+    .title-edit button.save { background: #111; color: #fff; }
+    .title-edit button.cancel { background: none; border: 1px solid #ccc; color: #555; }
     #add-form { display: flex; gap: 0.5rem; margin: 1.5rem 0; }
     #add-form input { flex: 1; padding: 0.6rem 0.8rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; }
-    button { padding: 0.6rem 1.2rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; background: #111; color: #fff; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    button.remove { background: transparent; color: #c00; border: 1px solid #c00; padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+    button.add-btn { padding: 0.6rem 1.2rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; background: #111; color: #fff; }
     .track { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid #eee; }
     .track img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
     .track-info { flex: 1; min-width: 0; }
     .track-title { font-weight: 600; }
     .track-artist { color: #555; font-size: 0.9rem; }
+    .track-pending { color: #999; font-size: 0.9rem; font-style: italic; }
     .track-raw a { word-break: break-all; color: #111; font-size: 0.9rem; }
-    #error { color: #c00; margin: 0.5rem 0; min-height: 1.2em; }
+    button.remove { background: transparent; color: #c00; border: 1px solid #c00; padding: 0.25rem 0.6rem; font-size: 0.8rem; cursor: pointer; border-radius: 4px; }
+    button.remove:disabled { opacity: 0.4; cursor: not-allowed; }
+    .track-error { font-size: 0.8rem; color: #c00; margin-top: 0.2rem; }
+    #global-error { color: #c00; margin: 0.5rem 0; min-height: 1.2em; }
     .warning { background: #fff8e1; border: 1px solid #f0c060; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.9rem; margin-bottom: 1rem; }
-    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-    a.home { font-size: 0.85rem; color: #888; }
-    a.public-link { font-size: 0.85rem; color: #555; }
     .empty { color: #888; }
   </style>
 </head>
@@ -31,7 +41,16 @@
     <a class="home" href="/">← Plevoid</a>
     <a class="public-link" id="public-link" href="#" hidden>Public view →</a>
   </div>
-  <h1 id="title">Loading…</h1>
+
+  <div class="title-row">
+    <h1 id="title">Loading…</h1>
+    <button class="rename-btn" id="rename-btn" title="Rename playlist" hidden>✎</button>
+  </div>
+  <div class="title-edit" id="title-edit" hidden>
+    <input type="text" id="title-input" maxlength="100">
+    <button class="save" id="title-save">Save</button>
+    <button class="cancel" id="title-cancel">Cancel</button>
+  </div>
 
   <div id="no-token" class="warning" hidden>
     No edit token found. Open the edit link you saved when creating this playlist, or go back to <a href="/">your playlists</a>.
@@ -39,10 +58,10 @@
 
   <form id="add-form">
     <input type="url" id="url-input" placeholder="Paste a Spotify, Apple Music, YouTube… URL" required>
-    <button type="submit" id="add-btn">Add track</button>
+    <button type="submit" class="add-btn">Add track</button>
   </form>
 
-  <div id="error"></div>
+  <div id="global-error"></div>
   <div id="tracks"></div>
 
   <script>
@@ -59,7 +78,6 @@
       return getStoredPlaylists().find(p => p.id === id)?.token ?? null
     }
 
-    // --- Token resolution: URL param first, then localStorage ---
     const id = window.location.pathname.split('/').filter(Boolean).pop()
     const tokenFromUrl = new URLSearchParams(window.location.search).get('token')
     const token = tokenFromUrl ?? getStoredToken(id)
@@ -78,10 +96,11 @@
       } catch { return '#' }
     }
 
-    function setError(msg) {
-      document.getElementById('error').textContent = msg || ''
+    function setGlobalError(msg) {
+      document.getElementById('global-error').textContent = msg || ''
     }
 
+    // --- Load playlist ---
     async function load() {
       try {
         const res = await fetch(`/api/playlists/${id}`)
@@ -89,23 +108,83 @@
         if (!res.ok) throw new Error(data.error || 'Not found')
 
         document.title = `Edit: ${data.title} — Plevoid`
-        document.getElementById('title').textContent = `Edit: ${data.title}`
+        document.getElementById('title').textContent = data.title
 
         const pubLink = document.getElementById('public-link')
         pubLink.href = `/p/${id}`
         pubLink.hidden = false
 
-        // Persist token + up-to-date title for this device
-        if (token) savePlaylist(id, token, data.title)
+        if (token) {
+          savePlaylist(id, token, data.title)
+          document.getElementById('rename-btn').hidden = false
+        }
 
         tracks = data.tracks
         renderTracks()
       } catch (err) {
         document.getElementById('title').textContent = 'Error'
-        setError(err.message)
+        setGlobalError(err.message)
       }
     }
 
+    // --- Rename playlist ---
+    let currentTitle = ''
+
+    document.getElementById('rename-btn').addEventListener('click', () => {
+      currentTitle = document.getElementById('title').textContent
+      document.getElementById('title-input').value = currentTitle
+      document.getElementById('title-row')  // n/a, direct show/hide
+      document.querySelector('.title-row').hidden = true
+      document.getElementById('title-edit').hidden = false
+      document.getElementById('title-input').focus()
+      document.getElementById('title-input').select()
+    })
+
+    document.getElementById('title-cancel').addEventListener('click', cancelRename)
+    document.getElementById('title-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') cancelRename()
+    })
+
+    function cancelRename() {
+      document.querySelector('.title-row').hidden = false
+      document.getElementById('title-edit').hidden = true
+    }
+
+    document.getElementById('title-save').addEventListener('click', saveRename)
+    document.getElementById('title-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') saveRename()
+    })
+
+    async function saveRename() {
+      const newTitle = document.getElementById('title-input').value.trim()
+      if (!newTitle || newTitle === currentTitle) { cancelRename(); return }
+
+      const saveBtn = document.getElementById('title-save')
+      saveBtn.disabled = true
+      saveBtn.textContent = 'Saving…'
+
+      try {
+        const res = await fetch(`/api/playlists/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
+          body: JSON.stringify({ title: newTitle }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to rename')
+
+        document.getElementById('title').textContent = data.title
+        document.title = `Edit: ${data.title} — Plevoid`
+        savePlaylist(id, token, data.title)
+        cancelRename()
+      } catch (err) {
+        setGlobalError(err.message)
+      } finally {
+        saveBtn.disabled = false
+        saveBtn.textContent = 'Save'
+      }
+    }
+
+    // --- Tracks ---
     function renderTracks() {
       const container = document.getElementById('tracks')
       container.innerHTML = ''
@@ -123,12 +202,22 @@
     function renderTrack(track) {
       const div = document.createElement('div')
       div.className = 'track'
+      div.dataset.trackId = track.id
       const od = track.odesli_data
 
       const info = document.createElement('div')
       info.className = 'track-info'
 
-      if (od) {
+      if (track.pending) {
+        // Optimistic placeholder — show URL while resolving
+        const pendingEl = document.createElement('div')
+        pendingEl.className = 'track-pending'
+        pendingEl.textContent = track.url_original
+        const statusEl = document.createElement('div')
+        statusEl.className = 'track-pending'
+        statusEl.textContent = 'Resolving…'
+        info.append(pendingEl, statusEl)
+      } else if (od) {
         const entity = od.entitiesByUniqueId?.[od.entityUniqueId] ?? {}
         if (entity.thumbnailUrl) {
           const img = document.createElement('img')
@@ -153,9 +242,16 @@
         info.appendChild(a)
       }
 
+      if (track.error) {
+        const errEl = document.createElement('div')
+        errEl.className = 'track-error'
+        errEl.textContent = track.error
+        info.appendChild(errEl)
+      }
+
       div.appendChild(info)
 
-      if (token) {
+      if (token && !track.pending) {
         const btn = document.createElement('button')
         btn.className = 'remove'
         btn.textContent = 'Remove'
@@ -166,37 +262,45 @@
       return div
     }
 
+    // --- Add track (optimistic, non-blocking) ---
     document.getElementById('add-form').addEventListener('submit', async (e) => {
       e.preventDefault()
-      const addBtn = document.getElementById('add-btn')
       const urlInput = document.getElementById('url-input')
-      addBtn.disabled = true
-      addBtn.textContent = 'Adding…'
-      setError('')
+      const url = urlInput.value.trim()
+      if (!url) return
+
+      // Add placeholder immediately so the user can keep adding
+      const tempId = `pending-${crypto.randomUUID()}`
+      tracks.push({ id: tempId, url_original: url, odesli_data: null, pending: true })
+      renderTracks()
+      urlInput.value = ''
+      urlInput.focus()
 
       try {
         const res = await fetch(`/api/playlists/${id}/tracks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
-          body: JSON.stringify({ url: urlInput.value.trim() }),
+          body: JSON.stringify({ url }),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to add track')
-        tracks.push(data)
+
+        // Replace placeholder with real track
+        const idx = tracks.findIndex(t => t.id === tempId)
+        if (idx !== -1) tracks[idx] = data
         renderTracks()
-        urlInput.value = ''
-        urlInput.focus()
       } catch (err) {
-        setError(err.message)
-      } finally {
-        addBtn.disabled = false
-        addBtn.textContent = 'Add track'
+        // Mark placeholder as failed
+        const idx = tracks.findIndex(t => t.id === tempId)
+        if (idx !== -1) tracks[idx] = { ...tracks[idx], pending: false, error: err.message }
+        renderTracks()
       }
     })
 
+    // --- Remove track ---
     async function removeTrack(trackId, btn) {
       btn.disabled = true
-      setError('')
+      setGlobalError('')
       try {
         const res = await fetch(`/api/playlists/${id}/tracks/${trackId}`, {
           method: 'DELETE',
@@ -207,7 +311,7 @@
         tracks = tracks.filter(t => t.id !== trackId)
         renderTracks()
       } catch (err) {
-        setError(err.message)
+        setGlobalError(err.message)
         btn.disabled = false
       }
     }

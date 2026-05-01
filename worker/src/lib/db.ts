@@ -41,6 +41,17 @@ export async function createPlaylist(
     .run()
 }
 
+export async function updatePlaylistTitle(
+  db: D1Database,
+  id: string,
+  title: string
+): Promise<void> {
+  await db
+    .prepare('UPDATE playlists SET title = ? WHERE id = ?')
+    .bind(title, id)
+    .run()
+}
+
 export async function getTracks(db: D1Database, playlist_id: string): Promise<Track[]> {
   const { results } = await db
     .prepare(
