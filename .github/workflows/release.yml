@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options: [patch, minor, major]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Test and release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+
+      - run: npm ci
+        working-directory: worker
+
+      - run: npm run typecheck
+        working-directory: worker
+
+      - run: npm test
+        working-directory: worker
+
+      - name: Bump version
+        id: bump
+        run: |
+          cd worker
+          npm version ${{ inputs.bump }} --no-git-tag-version
+          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Update CHANGELOG
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            git log "${LAST_TAG}..HEAD" --pretty=format:"%s" --no-merges > /tmp/commits.txt
+          else
+            git log --pretty=format:"%s" --no-merges > /tmp/commits.txt
+          fi
+          TODAY=$(date +%Y-%m-%d)
+          export TODAY
+          python3 << 'PYEOF'
+import os, re
+
+version = os.environ['VERSION']
+today    = os.environ['TODAY']
+
+with open('/tmp/commits.txt') as f:
+    commits = [l.strip() for l in f if l.strip()]
+
+added  = [c[len('feat:'):].strip()  for c in commits if c.lower().startswith('feat:')]
+fixed  = [c[len('fix:'):].strip()   for c in commits if c.lower().startswith('fix:')]
+other  = [c for c in commits if not c.lower().startswith(('feat:', 'fix:', 'chore:'))]
+
+sections = []
+if added: sections.append('### Added\n'   + '\n'.join(f'- {a}' for a in added))
+if fixed: sections.append('### Fixed\n'   + '\n'.join(f'- {f}' for f in fixed))
+if other: sections.append('### Changed\n' + '\n'.join(f'- {o}' for o in other))
+if not sections: sections.append('### Changed\n- maintenance')
+
+entry = f"## [{version}] — {today}\n\n" + '\n\n'.join(sections) + "\n\n"
+
+with open('CHANGELOG.md', 'r') as f:
+    content = f.read()
+
+match = re.search(r'^## \[', content, re.MULTILINE)
+insert_at = match.start() if match else len(content)
+content = content[:insert_at] + entry + content[insert_at:]
+
+with open('CHANGELOG.md', 'w') as f:
+    f.write(content)
+
+print(f"CHANGELOG updated for v{version}")
+PYEOF
+
+      - name: Commit, tag, and push
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add worker/package.json worker/package-lock.json CHANGELOG.md
+          git commit -m "chore: release v${VERSION}"
+          git tag "v${VERSION}"
+          git push origin main
+          git push origin "v${VERSION}"
