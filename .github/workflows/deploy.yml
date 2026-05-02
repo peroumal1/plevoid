@@ -26,16 +26,56 @@ jobs:
     name: Deploy
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: worker/package-lock.json
+
       - run: npm ci
         working-directory: worker
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          cd worker
+          npm version patch --no-git-tag-version
+          echo "version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
+
+      - name: Update CHANGELOG
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            git log "${LAST_TAG}..HEAD" --pretty=format:"%s" --no-merges > /tmp/commits.txt
+          else
+            git log --pretty=format:"%s" --no-merges > /tmp/commits.txt
+          fi
+          TODAY=$(date +%Y-%m-%d)
+          export TODAY
+          python3 .github/scripts/update_changelog.py
+
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: worker
+
+      - name: Commit, tag, and push
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add worker/package.json worker/package-lock.json CHANGELOG.md
+          git commit -m "chore: release v${VERSION}"
+          git tag "v${VERSION}"
+          git push origin main
+          git push origin "v${VERSION}"
