@@ -1,0 +1,32 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.2.0] — 2026-05-02
+
+### Added
+- Track reordering — up/down buttons in edit view, persisted via `position` column and `PATCH /api/playlists/:id/tracks/reorder`
+- Bulk URL import — textarea mode in edit view accepts one URL per line, fires parallel POSTs
+- CSV export — `GET /api/playlists/:id/export.csv` (public); download link in playlist view
+- Vitest unit tests for CSV generation (10 tests covering escaping, `_notFound`, null odesli data)
+- CI now runs `npm test` before deploying
+
+### Changed
+- Track insertion assigns `position` automatically (`MAX(position) + 1`)
+- Track list ordered by `position ASC NULLS LAST, added_at ASC`
+
+## [0.1.0] — 2026-04-01
+
+### Added
+- Anonymous playlist creation with public URL and secret edit token stored in `localStorage`
+- Add tracks by URL (Spotify, Apple Music, YouTube, YouTube Music, Deezer, SoundCloud, Amazon Music, Bandcamp)
+- Song search autocomplete via iTunes API, geo-localised by Cloudflare request metadata
+- Async Odesli enrichment via Cloudflare Queue (artwork, cross-platform links); frontend polls until resolved
+- `_notFound` sentinel for tracks Odesli cannot resolve; edit-URL shortcut shown in edit view
+- 50-track limit per playlist
+- 90-day inactivity retention policy via weekly cron (`last_accessed_at` updated on every read)
+- Songlink attribution in footer
+- GitHub Actions CI/CD: typecheck then deploy on push to `main`
+- SVG logo and favicons
