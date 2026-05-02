@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
-import { getPlaylistForEdit, insertTrack, deleteTrack, getTrackCount } from '../lib/db'
+import { getPlaylistForEdit, insertTrack, deleteTrack, getTrackCount, reorderTracks } from '../lib/db'
 import { parseMusicUrl, SUPPORTED_PLATFORMS } from '../lib/validate'
 
 export const trackRoutes = new Hono<{ Bindings: Bindings }>()
@@ -46,6 +46,21 @@ trackRoutes.post('/:id/tracks', async (c) => {
   await c.env.ODESLI_QUEUE.send({ trackId, url })
 
   return c.json({ id: trackId, url_original: url, odesli_data: null }, 201)
+})
+
+trackRoutes.patch('/:id/tracks/reorder', async (c) => {
+  const check = await verifyToken(c.env.plevoid_db, c.req.param('id'), c.req.header('X-Edit-Token'))
+  if ('err' in check) return c.json({ error: check.err }, check.status)
+
+  let body: { order?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'invalid JSON' }, 400) }
+
+  if (!Array.isArray(body.order) || !body.order.every(x => typeof x === 'string')) {
+    return c.json({ error: 'order must be an array of track IDs' }, 400)
+  }
+
+  await reorderTracks(c.env.plevoid_db, check.playlist.id, body.order as string[])
+  return c.json({ success: true })
 })
 
 trackRoutes.delete('/:id/tracks/:trackId', async (c) => {

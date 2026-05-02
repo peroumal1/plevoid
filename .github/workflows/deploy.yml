@@ -19,6 +19,8 @@ jobs:
         working-directory: worker
       - run: npm run typecheck
         working-directory: worker
+      - run: npm test
+        working-directory: worker
 
   deploy:
     name: Deploy

@@ -40,6 +40,7 @@
   <div class="nav">
     <a href="/"><i class="fa-solid fa-arrow-left"></i> Plevoid</a>
     <div class="nav-right">
+      <a id="export-link" href="#" hidden download><i class="fa-solid fa-download"></i> CSV</a>
       <button id="share-btn" hidden title="Share playlist"><i class="fa-solid fa-share-nodes"></i> Share</button>
       <a id="edit-link" href="#" hidden><i class="fa-solid fa-pen"></i> Edit</a>
     </div>
@@ -141,6 +142,9 @@
         document.title = `${data.title} — Plevoid`
         document.getElementById('title').textContent = data.title
         document.getElementById('share-btn').hidden = false
+        const exportLink = document.getElementById('export-link')
+        exportLink.href = `/api/playlists/${id}/export.csv`
+        exportLink.hidden = false
 
         const container = document.getElementById('tracks')
         if (!data.tracks.length) {

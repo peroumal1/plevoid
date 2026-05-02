@@ -10,6 +10,7 @@ export type Track = {
   url_original: string
   odesli_data: string | null
   added_at: number
+  position: number | null
 }
 
 export async function getPlaylist(db: D1Database, id: string): Promise<Playlist | null> {
@@ -62,7 +63,7 @@ export async function updatePlaylistTitle(
 export async function getTracks(db: D1Database, playlist_id: string): Promise<Track[]> {
   const { results } = await db
     .prepare(
-      'SELECT id, playlist_id, url_original, odesli_data, added_at FROM tracks WHERE playlist_id = ? ORDER BY added_at ASC'
+      'SELECT id, playlist_id, url_original, odesli_data, added_at, position FROM tracks WHERE playlist_id = ? ORDER BY position ASC NULLS LAST, added_at ASC'
     )
     .bind(playlist_id)
     .all<Track>()
@@ -78,10 +79,19 @@ export async function insertTrack(
 ): Promise<void> {
   await db
     .prepare(
-      'INSERT INTO tracks (id, playlist_id, url_original, odesli_data, added_at) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO tracks (id, playlist_id, url_original, odesli_data, added_at, position) VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE playlist_id = ?))'
     )
-    .bind(id, playlist_id, url_original, odesli_data, Math.floor(Date.now() / 1000))
+    .bind(id, playlist_id, url_original, odesli_data, Math.floor(Date.now() / 1000), playlist_id)
     .run()
+}
+
+export async function reorderTracks(db: D1Database, playlist_id: string, order: string[]): Promise<void> {
+  if (!order.length) return
+  const stmts = order.map((trackId, i) =>
+    db.prepare('UPDATE tracks SET position = ? WHERE id = ? AND playlist_id = ?')
+      .bind(i + 1, trackId, playlist_id)
+  )
+  await db.batch(stmts)
 }
 
 export async function updateTrackOdesli(
