@@ -45,6 +45,10 @@
     .btn-primary:hover { opacity: 0.85; }
 
     .track { display: flex; align-items: center; gap: 1rem; padding: 0.85rem 0; border-bottom: 1px solid #eee; }
+    .track-reorder { display: flex; flex-direction: column; gap: 0; flex-shrink: 0; }
+    .track-reorder .btn-icon { font-size: 0.7rem; padding: 0.1rem 0.35rem; color: #ccc; }
+    .track-reorder .btn-icon:not(:disabled):hover { color: #111; background: #f0f0f0; }
+    .track-reorder .btn-icon:disabled { opacity: 0.25; cursor: default; }
     .track img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
     .track-info { flex: 1; min-width: 0; }
     .track-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -57,6 +61,15 @@
     #global-error { color: #c00; margin: 0.5rem 0; font-size: 0.9rem; min-height: 1.2em; }
     .empty { color: #999; font-size: 0.95rem; }
     .retention-notice { margin-top: 3rem; font-size: 0.8rem; color: #bbb; text-align: center; }
+
+    .btn-text { background: none; border: none; cursor: pointer; color: #aaa; font-size: 0.8rem; padding: 0; font-family: inherit; }
+    .btn-text:hover { color: #555; }
+    #bulk-toggle-wrap { text-align: right; margin-top: -0.75rem; margin-bottom: 0.5rem; }
+    #bulk-section { margin: 1.5rem 0; }
+    #bulk-section .bulk-hint { font-size: 0.82rem; color: #999; margin: 0 0 0.5rem; }
+    #bulk-input { width: 100%; padding: 0.65rem 0.9rem; font-size: 0.9rem; border: 1px solid #ddd; border-radius: 6px; outline: none; resize: vertical; min-height: 110px; transition: border-color 0.15s; font-family: monospace; }
+    #bulk-input:focus { border-color: #111; }
+    .bulk-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.6rem; }
   </style>
 </head>
 <body>
@@ -95,6 +108,20 @@
       <i class="fa-solid fa-plus"></i> Add
     </button>
   </form>
+  <div id="bulk-toggle-wrap">
+    <button type="button" id="bulk-toggle" class="btn-text">Add multiple URLs</button>
+  </div>
+
+  <div id="bulk-section" hidden>
+    <p class="bulk-hint">One URL per line — Spotify, Apple Music, YouTube, and others.</p>
+    <textarea id="bulk-input" placeholder="https://open.spotify.com/track/…&#10;https://music.apple.com/…"></textarea>
+    <div class="bulk-actions">
+      <button type="button" id="bulk-submit" class="btn-primary" disabled>
+        <i class="fa-solid fa-plus"></i> Add tracks
+      </button>
+      <button type="button" id="bulk-cancel" class="btn-text">Cancel</button>
+    </div>
+  </div>
 
   <div id="global-error"></div>
   <div id="tracks"></div>
@@ -123,6 +150,7 @@
     if (!token) {
       document.getElementById('no-token').hidden = false
       document.getElementById('add-form').hidden = true
+      document.getElementById('bulk-toggle-wrap').hidden = true
     }
 
     let tracks = []
@@ -266,12 +294,32 @@
         container.innerHTML = '<p class="empty">No tracks yet. Add one above.</p>'
         return
       }
-      for (const track of tracks) container.appendChild(renderTrack(track))
+      tracks.forEach((track, i) => container.appendChild(renderTrack(track, i, tracks.length)))
     }
 
-    function renderTrack(track) {
+    function renderTrack(track, index, total) {
       const div = document.createElement('div')
       div.className = 'track'
+
+      if (token && !track.pending) {
+        const reorderEl = document.createElement('div')
+        reorderEl.className = 'track-reorder'
+        const upBtn = document.createElement('button')
+        upBtn.className = 'btn-icon'
+        upBtn.title = 'Move up'
+        upBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i>'
+        upBtn.disabled = index === 0
+        upBtn.addEventListener('click', () => moveTrack(track.id, -1))
+        const downBtn = document.createElement('button')
+        downBtn.className = 'btn-icon'
+        downBtn.title = 'Move down'
+        downBtn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>'
+        downBtn.disabled = index === total - 1
+        downBtn.addEventListener('click', () => moveTrack(track.id, 1))
+        reorderEl.append(upBtn, downBtn)
+        div.appendChild(reorderEl)
+      }
+
       const info = document.createElement('div')
       info.className = 'track-info'
 
@@ -457,6 +505,102 @@
         renderTracks()
       }
     })
+
+    // --- Bulk add ---
+    const bulkSubmit = document.getElementById('bulk-submit')
+    const bulkInput = document.getElementById('bulk-input')
+
+    function openBulk() {
+      document.getElementById('add-form').hidden = true
+      document.getElementById('bulk-toggle-wrap').hidden = true
+      document.getElementById('bulk-section').hidden = false
+      bulkInput.focus()
+    }
+
+    function closeBulk() {
+      document.getElementById('bulk-section').hidden = true
+      document.getElementById('add-form').hidden = false
+      document.getElementById('bulk-toggle-wrap').hidden = false
+      bulkInput.value = ''
+      bulkSubmit.disabled = true
+      bulkSubmit.innerHTML = '<i class="fa-solid fa-plus"></i> Add tracks'
+    }
+
+    document.getElementById('bulk-toggle').addEventListener('click', openBulk)
+    document.getElementById('bulk-cancel').addEventListener('click', closeBulk)
+
+    bulkInput.addEventListener('input', () => {
+      const count = bulkInput.value.split('\n').map(l => l.trim()).filter(isUrl).length
+      bulkSubmit.disabled = count === 0
+      bulkSubmit.innerHTML = count > 0
+        ? `<i class="fa-solid fa-plus"></i> Add ${count} track${count !== 1 ? 's' : ''}`
+        : '<i class="fa-solid fa-plus"></i> Add tracks'
+    })
+
+    bulkSubmit.addEventListener('click', async () => {
+      const urls = bulkInput.value.split('\n').map(l => l.trim()).filter(isUrl)
+      if (!urls.length) return
+
+      const realCount = tracks.filter(t => !t.pending).length
+      const available = 50 - realCount
+      const toAdd = urls.slice(0, available)
+
+      if (toAdd.length < urls.length) {
+        setGlobalError(`Playlist limit: adding ${toAdd.length} of ${urls.length} URLs (50 track max)`)
+      } else {
+        setGlobalError('')
+      }
+      if (!toAdd.length) return
+
+      closeBulk()
+
+      const tempIds = toAdd.map(() => `pending-${crypto.randomUUID()}`)
+      toAdd.forEach((url, i) => {
+        tracks.push({ id: tempIds[i], url_original: url, odesli_data: null, pending: true })
+      })
+      renderTracks()
+
+      const results = await Promise.all(toAdd.map((url, i) =>
+        fetch(`/api/playlists/${id}/tracks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
+          body: JSON.stringify({ url }),
+        })
+          .then(async res => {
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to add')
+            return { tempId: tempIds[i], data }
+          })
+          .catch(err => ({ tempId: tempIds[i], error: err.message }))
+      ))
+
+      for (const r of results) {
+        const idx = tracks.findIndex(t => t.id === r.tempId)
+        if (idx === -1) continue
+        tracks[idx] = r.error
+          ? { ...tracks[idx], pending: false, error: r.error }
+          : r.data
+      }
+      renderTracks()
+      startPolling()
+    })
+
+    // --- Reorder tracks ---
+    async function moveTrack(trackId, direction) {
+      const idx = tracks.findIndex(t => t.id === trackId)
+      const newIdx = idx + direction
+      if (newIdx < 0 || newIdx >= tracks.length) return
+      ;[tracks[idx], tracks[newIdx]] = [tracks[newIdx], tracks[idx]]
+      renderTracks()
+      const realOrder = tracks.filter(t => !t.pending).map(t => t.id)
+      try {
+        await fetch(`/api/playlists/${id}/tracks/reorder`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
+          body: JSON.stringify({ order: realOrder }),
+        })
+      } catch { /* best-effort; order reconciled on next load */ }
+    }
 
     // --- Remove track ---
     async function removeTrack(trackId, btn) {
