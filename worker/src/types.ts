@@ -8,4 +8,6 @@ export type Bindings = {
   ASSETS: Fetcher
   ODESLI_API_KEY?: string
   ODESLI_QUEUE: Queue<QueueMessage>
+  SPOTIFY_CLIENT_ID?: string
+  SPOTIFY_CLIENT_SECRET?: string
 }

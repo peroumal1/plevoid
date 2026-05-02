@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
-import { getPlaylistForEdit, insertTrack, deleteTrack, getTrackCount, reorderTracks } from '../lib/db'
+import { getPlaylistForEdit, deleteTrack, getTrackCount, reorderTracks } from '../lib/db'
 import { parseMusicUrl, SUPPORTED_PLATFORMS } from '../lib/validate'
+import { addTrack } from '../lib/track-actions'
 
 export const trackRoutes = new Hono<{ Bindings: Bindings }>()
 
@@ -38,14 +39,8 @@ trackRoutes.post('/:id/tracks', async (c) => {
   const count = await getTrackCount(c.env.plevoid_db, check.playlist.id)
   if (count >= 50) return c.json({ error: 'playlist limit reached (50 tracks maximum)' }, 400)
 
-  const url = parsed.href
-  const trackId = crypto.randomUUID()
-
-  // Insert immediately with null odesli_data, resolve asynchronously via queue
-  await insertTrack(c.env.plevoid_db, trackId, check.playlist.id, url, null)
-  await c.env.ODESLI_QUEUE.send({ trackId, url })
-
-  return c.json({ id: trackId, url_original: url, odesli_data: null }, 201)
+  const track = await addTrack(c.env.plevoid_db, c.env.ODESLI_QUEUE, check.playlist.id, parsed.href)
+  return c.json(track, 201)
 })
 
 trackRoutes.patch('/:id/tracks/reorder', async (c) => {

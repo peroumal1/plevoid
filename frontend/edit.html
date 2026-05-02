@@ -70,6 +70,9 @@
     #bulk-input { width: 100%; padding: 0.65rem 0.9rem; font-size: 0.9rem; border: 1px solid #ddd; border-radius: 6px; outline: none; resize: vertical; min-height: 110px; transition: border-color 0.15s; font-family: monospace; }
     #bulk-input:focus { border-color: #111; }
     .bulk-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.6rem; }
+    #spotify-input { width: 100%; padding: 0.65rem 0.9rem; font-size: 0.9rem; border: 1px solid #ddd; border-radius: 6px; outline: none; transition: border-color 0.15s; }
+    #spotify-input:focus { border-color: #111; }
+    #spotify-status { font-size: 0.85rem; color: #999; }
   </style>
 </head>
 <body>
@@ -110,6 +113,8 @@
   </form>
   <div id="bulk-toggle-wrap">
     <button type="button" id="bulk-toggle" class="btn-text">Add multiple URLs</button>
+    <span style="color:#ddd;margin:0 0.25rem">·</span>
+    <button type="button" id="spotify-toggle" class="btn-text"><i class="fa-brands fa-spotify"></i> Import Spotify playlist</button>
   </div>
 
   <div id="bulk-section" hidden>
@@ -120,6 +125,18 @@
         <i class="fa-solid fa-plus"></i> Add tracks
       </button>
       <button type="button" id="bulk-cancel" class="btn-text">Cancel</button>
+    </div>
+  </div>
+
+  <div id="spotify-section" hidden>
+    <p class="bulk-hint">Paste a public Spotify playlist URL. Spotify editorial playlists (Discover Weekly, charts) are not supported.</p>
+    <input type="url" id="spotify-input" placeholder="https://open.spotify.com/playlist/…" autocomplete="off">
+    <div class="bulk-actions">
+      <button type="button" id="spotify-submit" class="btn-primary" disabled>
+        <i class="fa-brands fa-spotify"></i> Import playlist
+      </button>
+      <button type="button" id="spotify-cancel" class="btn-text">Cancel</button>
+      <span id="spotify-status"></span>
     </div>
   </div>
 
@@ -584,6 +601,85 @@
       }
       renderTracks()
       startPolling()
+    })
+
+    // --- Spotify import ---
+    function isSpotifyPlaylistUrl(val) {
+      try {
+        const u = new URL(val)
+        return u.hostname === 'open.spotify.com' && u.pathname.startsWith('/playlist/')
+      } catch { return false }
+    }
+
+    function openSpotify() {
+      document.getElementById('add-form').hidden = true
+      document.getElementById('bulk-toggle-wrap').hidden = true
+      document.getElementById('spotify-section').hidden = false
+      document.getElementById('spotify-input').focus()
+    }
+
+    function closeSpotify() {
+      document.getElementById('spotify-section').hidden = true
+      document.getElementById('add-form').hidden = false
+      document.getElementById('bulk-toggle-wrap').hidden = false
+      document.getElementById('spotify-input').value = ''
+      document.getElementById('spotify-submit').disabled = true
+      document.getElementById('spotify-status').textContent = ''
+    }
+
+    document.getElementById('spotify-toggle').addEventListener('click', openSpotify)
+    document.getElementById('spotify-cancel').addEventListener('click', closeSpotify)
+
+    document.getElementById('spotify-input').addEventListener('input', () => {
+      const val = document.getElementById('spotify-input').value.trim()
+      document.getElementById('spotify-submit').disabled = !isSpotifyPlaylistUrl(val)
+      document.getElementById('spotify-status').textContent = ''
+    })
+
+    document.getElementById('spotify-submit').addEventListener('click', async () => {
+      const playlistUrl = document.getElementById('spotify-input').value.trim()
+      if (!isSpotifyPlaylistUrl(playlistUrl)) return
+
+      const submitBtn = document.getElementById('spotify-submit')
+      const statusEl = document.getElementById('spotify-status')
+      submitBtn.disabled = true
+      submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Importing…'
+      statusEl.textContent = ''
+      setGlobalError('')
+
+      try {
+        const res = await fetch(`/api/playlists/${id}/import/spotify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
+          body: JSON.stringify({ playlist_url: playlistUrl }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Import failed')
+
+        closeSpotify()
+        const msg = data.skipped > 0
+          ? `Imported ${data.imported} track${data.imported !== 1 ? 's' : ''} (${data.skipped} skipped — playlist full or unavailable)`
+          : `Imported ${data.imported} track${data.imported !== 1 ? 's' : ''}`
+        setGlobalError('')
+
+        const res2 = await fetch(`/api/playlists/${id}`)
+        if (res2.ok) {
+          const fresh = await res2.json()
+          tracks = fresh.tracks
+          renderTracks()
+          if (needsOdesli()) startPolling()
+        }
+        // show result inline after tracks
+        const note = document.createElement('p')
+        note.style.cssText = 'font-size:0.85rem;color:#2a9d5c;margin:0.5rem 0'
+        note.textContent = msg
+        document.getElementById('tracks').prepend(note)
+        setTimeout(() => note.remove(), 5000)
+      } catch (err) {
+        setGlobalError(err.message)
+        submitBtn.disabled = false
+        submitBtn.innerHTML = '<i class="fa-brands fa-spotify"></i> Import playlist'
+      }
     })
 
     // --- Reorder tracks ---
