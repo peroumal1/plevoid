@@ -128,6 +128,7 @@
   <p class="retention-notice">
     Playlists are limited to 50 tracks and deleted after 90 days of inactivity. &nbsp;·&nbsp;
     Music links via <a href="https://song.link" target="_blank" rel="noopener" style="color:#bbb">Songlink</a>
+    &nbsp;·&nbsp; <span id="ver"></span>
   </p>
 
   <script>
@@ -622,6 +623,10 @@
     }
 
     load()
+    fetch('/api/version').then(r => r.json()).then(d => {
+      const el = document.getElementById('ver')
+      if (el) el.textContent = `v${d.version}`
+    }).catch(() => {})
   </script>
 </body>
 </html>

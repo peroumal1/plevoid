@@ -180,6 +180,13 @@
     })
 
     renderStoredPlaylists()
+    fetch('/api/version').then(r => r.json()).then(d => {
+      const el = document.getElementById('ver')
+      if (el) el.textContent = `v${d.version}`
+    }).catch(() => {})
   </script>
+  <p style="margin-top:3rem;font-size:0.8rem;color:#bbb;text-align:center">
+    <span id="ver"></span>
+  </p>
 </body>
 </html>
