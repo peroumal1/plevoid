@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
 import { createPlaylist, getPlaylist, getPlaylistForEdit, getTracks, updatePlaylistTitle, updateLastAccessed } from '../lib/db'
+import { tracksToCSV } from '../lib/export'
 
 export const playlistRoutes = new Hono<{ Bindings: Bindings }>()
 
@@ -30,6 +31,23 @@ playlistRoutes.post('/', async (c) => {
     },
     201
   )
+})
+
+playlistRoutes.get('/:id/export.csv', async (c) => {
+  const id = c.req.param('id')
+  const playlist = await getPlaylist(c.env.plevoid_db, id)
+  if (!playlist) return c.json({ error: 'not found' }, 404)
+
+  const tracks = await getTracks(c.env.plevoid_db, playlist.id)
+  const csv = tracksToCSV(tracks)
+  const safeTitle = playlist.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'playlist'
+
+  return new Response(csv, {
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${safeTitle}.csv"`,
+    },
+  })
 })
 
 playlistRoutes.get('/:id', async (c) => {

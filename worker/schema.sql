@@ -11,5 +11,6 @@ CREATE TABLE IF NOT EXISTS tracks (
   playlist_id  TEXT NOT NULL REFERENCES playlists(id),
   url_original TEXT NOT NULL,
   odesli_data  TEXT,
-  added_at     INTEGER NOT NULL
+  added_at     INTEGER NOT NULL,
+  position     INTEGER
 );
