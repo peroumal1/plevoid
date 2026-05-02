@@ -237,9 +237,14 @@
     }
 
     load()
+    fetch('/api/version').then(r => r.json()).then(d => {
+      const el = document.getElementById('ver')
+      if (el) el.textContent = `v${d.version}`
+    }).catch(() => {})
   </script>
   <p style="margin-top:3rem;font-size:0.8rem;color:#bbb;text-align:center">
     Music links via <a href="https://song.link" target="_blank" rel="noopener" style="color:#bbb">Songlink</a>
+    &nbsp;·&nbsp; <span id="ver"></span>
   </p>
 </body>
 </html>

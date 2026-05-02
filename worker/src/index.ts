@@ -6,10 +6,12 @@ import { trackRoutes } from './routes/tracks'
 import { searchRoutes } from './routes/search'
 import { fetchOdesli } from './lib/odesli'
 import { updateTrackOdesli, deleteOldPlaylists } from './lib/db'
+import pkg from '../package.json'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('*', cors())
+app.get('/api/version', (c) => c.json({ version: pkg.version }))
 app.route('/api/playlists', playlistRoutes)
 app.route('/api/playlists', trackRoutes)
 app.route('/api/search', searchRoutes)
