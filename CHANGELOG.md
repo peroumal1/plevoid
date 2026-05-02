@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] — 2026-05-02
+
+### Added
+- expose /api/version and display version in footer on all pages
+
+### Fixed
+- put version on its own line below footer text
+- add more spacing and separator line above edit page footer
+
+### Changed
+- ci: auto-bump patch version on every deploy, keep manual release for minor/major
+
 ## [0.2.1] — 2026-05-02
 
 ### Fixed
