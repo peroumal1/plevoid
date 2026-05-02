@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import type { Bindings, QueueMessage } from './types'
 import { playlistRoutes } from './routes/playlists'
 import { trackRoutes } from './routes/tracks'
+import { importRoutes } from './routes/import'
 import { searchRoutes } from './routes/search'
 import { fetchOdesli } from './lib/odesli'
 import { updateTrackOdesli, deleteOldPlaylists } from './lib/db'
@@ -14,6 +15,7 @@ app.use('*', cors())
 app.get('/api/version', (c) => c.json({ version: pkg.version }))
 app.route('/api/playlists', playlistRoutes)
 app.route('/api/playlists', trackRoutes)
+app.route('/api/playlists', importRoutes)
 app.route('/api/search', searchRoutes)
 
 app.get('/p/:id', (c) =>

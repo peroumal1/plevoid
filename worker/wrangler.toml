@@ -12,6 +12,9 @@ binding = "ASSETS"
 # [vars]
 # ODESLI_API_KEY = "your-key-here"
 
+# Spotify import — set via: wrangler secret put SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET
+# These are secrets (not vars) since they include the client secret.
+
 
 [[d1_databases]]
 binding = "plevoid_db"
