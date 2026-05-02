@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-05-02
+
+### Fixed
+- move CHANGELOG script to separate file to avoid YAML heredoc conflict
+- exclude test files from Workers tsconfig to avoid tinybench/EventTarget conflict
+
+### Changed
+- ci: split release workflow into test + release jobs
+- ci: add release workflow with version bump, CHANGELOG update, and tagging
+
 ## [0.2.0] — 2026-05-02
 
 ### Added
