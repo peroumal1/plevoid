@@ -11,7 +11,7 @@ trackRoutes.post('/:id/tracks', async (c) => {
   const check = await verifyToken(c.env.plevoid_db, c.req.param('id'), c.req.header('X-Edit-Token'))
   if ('err' in check) return c.json({ error: check.err }, check.status)
 
-  let body: { url?: string }
+  let body: { url?: string; metadata?: { title?: string; artist?: string; artwork?: string } }
   try {
     body = await c.req.json()
   } catch {
@@ -28,7 +28,8 @@ trackRoutes.post('/:id/tracks', async (c) => {
   const count = await getTrackCount(c.env.plevoid_db, check.playlist.id)
   if (count >= 50) return c.json({ error: 'playlist limit reached (50 tracks maximum)' }, 400)
 
-  const track = await addTrack(c.env.plevoid_db, c.env.ODESLI_QUEUE, check.playlist.id, parsed.href, c.env.ODESLI_API_KEY)
+  const meta = body.metadata
+  const track = await addTrack(c.env.plevoid_db, c.env.ODESLI_QUEUE, check.playlist.id, parsed.href, c.env.ODESLI_API_KEY, meta)
   return c.json(track, 201)
 })
 

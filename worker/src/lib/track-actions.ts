@@ -2,14 +2,37 @@ import type { QueueMessage } from '../types'
 import { insertTrack } from './db'
 import { fetchOdesli, type OdesliData } from './odesli'
 
+type SearchMetadata = { title?: string; artist?: string; artwork?: string }
+
 export async function addTrack(
   db: D1Database,
   queue: Queue<QueueMessage>,
   playlistId: string,
   url: string,
-  odesliApiKey?: string
+  odesliApiKey?: string,
+  metadata?: SearchMetadata
 ): Promise<{ id: string; url_original: string; odesli_data: OdesliData | { _notFound: true } | null }> {
   const trackId = crypto.randomUUID()
+
+  if (metadata) {
+    // Store a preview stub immediately so the track renders without a spinner.
+    // Always enqueue for full Odesli resolution (platform links etc.).
+    const preview = {
+      entityUniqueId: 'preview',
+      entitiesByUniqueId: {
+        preview: {
+          title: metadata.title ?? '',
+          artistName: metadata.artist ?? '',
+          ...(metadata.artwork ? { thumbnailUrl: metadata.artwork } : {}),
+        },
+      },
+      _preview: true,
+    }
+    await insertTrack(db, trackId, playlistId, url, JSON.stringify(preview))
+    await queue.send({ trackId, url })
+    return { id: trackId, url_original: url, odesli_data: preview as unknown as OdesliData }
+  }
+
   let odesliData: OdesliData | { _notFound: true } | null = null
   let useQueue = false
   try {
