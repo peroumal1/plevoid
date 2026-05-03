@@ -56,8 +56,16 @@ export default {
         const odesli = await fetchOdesli(url, env.ODESLI_API_KEY, { waitOnRateLimit: true, maxWaitCycles: 1 })
         await updateTrackOdesli(env.plevoid_db, trackId, JSON.stringify(odesli ?? { _notFound: true }))
         msg.ack()
-      } catch {
-        msg.retry()
+      } catch (err) {
+        const match = err instanceof Error && err.message.match(/^Odesli (\d+)$/)
+        const status = match ? parseInt(match[1], 10) : 0
+        // 4xx (except 429) won't fix itself — mark as not found rather than looping forever
+        if (status >= 400 && status < 500 && status !== 429) {
+          await updateTrackOdesli(env.plevoid_db, trackId, JSON.stringify({ _notFound: true }))
+          msg.ack()
+        } else {
+          msg.retry()
+        }
       }
     }
   },
