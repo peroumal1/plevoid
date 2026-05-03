@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] — 2026-05-03
+
+### Fixed
+- exclude integration tests from unit test runner
+- process queue messages one at a time with 6s pre-call delay
+
+### Changed
+- docs: update queue consumer and cron docs to reflect recent fixes
+- test: add integration tests for happy paths (Workers pool + D1)
+
 ## [0.2.7] — 2026-05-03
 
 ### Changed
