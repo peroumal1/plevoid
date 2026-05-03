@@ -185,7 +185,7 @@
     let safetyTimer = null
 
     function needsOdesli() {
-      return tracks.some(t => !t.pending && !t.error && t.odesli_data === null)
+      return tracks.some(t => !t.pending && !t.error && (t.odesli_data === null || t.odesli_data?._preview))
     }
 
     async function pollOdesli() {
@@ -196,8 +196,8 @@
         const data = await res.json()
         let changed = false
         for (const fresh of data.tracks) {
-          if (!fresh.odesli_data) continue
-          const idx = tracks.findIndex(t => t.id === fresh.id && t.odesli_data === null)
+          if (!fresh.odesli_data || fresh.odesli_data._preview) continue
+          const idx = tracks.findIndex(t => t.id === fresh.id && (!t.odesli_data || t.odesli_data._preview))
           if (idx !== -1) { tracks[idx] = fresh; changed = true }
         }
         if (changed) renderTracks()
@@ -336,25 +336,8 @@
       const info = document.createElement('div')
       info.className = 'track-info'
 
-      if (track.pending) {
-        div.className += ' track-pending'
-        const urlEl = document.createElement('div')
-        urlEl.className = 'track-url'
-        urlEl.textContent = track.url_original
-        const statusEl = document.createElement('div')
-        statusEl.className = 'track-status'
-        statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Resolving…'
-        info.append(urlEl, statusEl)
-      } else if (track.odesli_data?._notFound) {
-        const urlEl = document.createElement('div')
-        urlEl.className = 'track-url'
-        urlEl.textContent = track.url_original
-        const noteEl = document.createElement('div')
-        noteEl.className = 'track-status'
-        noteEl.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Not found on any platform'
-        info.append(urlEl, noteEl)
-      } else if (track.odesli_data) {
-        const od = track.odesli_data
+      const od = track.odesli_data
+      if (od && !od._notFound) {
         const entity = od.entitiesByUniqueId?.[od.entityUniqueId] ?? {}
         if (entity.thumbnailUrl) {
           const img = document.createElement('img')
@@ -369,8 +352,24 @@
         artistEl.className = 'track-artist'
         artistEl.textContent = entity.artistName ?? ''
         info.append(titleEl, artistEl)
+      } else if (od?._notFound) {
+        const urlEl = document.createElement('div')
+        urlEl.className = 'track-url'
+        urlEl.textContent = track.url_original
+        const noteEl = document.createElement('div')
+        noteEl.className = 'track-status'
+        noteEl.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Not found on any platform'
+        info.append(urlEl, noteEl)
+      } else if (track.pending) {
+        div.className += ' track-pending'
+        const urlEl = document.createElement('div')
+        urlEl.className = 'track-url'
+        urlEl.textContent = track.url_original
+        const statusEl = document.createElement('div')
+        statusEl.className = 'track-status'
+        statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Resolving…'
+        info.append(urlEl, statusEl)
       } else {
-        // Real track saved to D1 but queue hasn't resolved Odesli yet
         div.className += ' track-pending'
         const urlEl = document.createElement('div')
         urlEl.className = 'track-url'
@@ -422,6 +421,7 @@
     const urlInput = document.getElementById('url-input')
     const suggestionsEl = document.getElementById('suggestions')
     let pendingUrl = null  // set when a suggestion is selected
+    let pendingMeta = null // search result metadata to skip the Odesli spinner
     let searchResults = []
     let searchTimer = null
 
@@ -449,6 +449,7 @@
         item.addEventListener('mousedown', (e) => {
           e.preventDefault() // keep focus on input so blur doesn't fire first
           pendingUrl = r.url
+          pendingMeta = { title: r.title, artist: r.artist, artwork: r.artwork }
           urlInput.value = `${r.title} — ${r.artist}`
           hideSuggestions()
           document.getElementById('add-form').requestSubmit()
@@ -461,6 +462,7 @@
     urlInput.addEventListener('input', () => {
       const val = urlInput.value.trim()
       pendingUrl = isUrl(val) ? val : null
+      pendingMeta = null
       clearTimeout(searchTimer)
       hideSuggestions()
       if (!isUrl(val) && val.length >= 2) {
@@ -491,20 +493,29 @@
       setGlobalError('')
 
       const displayLabel = urlInput.value.trim()
+      const meta = pendingMeta
       pendingUrl = null
+      pendingMeta = null
       hideSuggestions()
 
+      const optimisticOdesli = meta ? {
+        entityUniqueId: 'preview',
+        entitiesByUniqueId: { preview: { title: meta.title, artistName: meta.artist, thumbnailUrl: meta.artwork } },
+        _preview: true,
+      } : null
+
       const tempId = `pending-${crypto.randomUUID()}`
-      tracks.push({ id: tempId, url_original: displayLabel, odesli_data: null, pending: true })
+      tracks.push({ id: tempId, url_original: url, odesli_data: optimisticOdesli, pending: true })
       renderTracks()
       urlInput.value = ''
       urlInput.focus()
 
       try {
+        const body = meta ? { url, metadata: meta } : { url }
         const res = await fetch(`/api/playlists/${id}/tracks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
-          body: JSON.stringify({ url }),
+          body: JSON.stringify(body),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to add track')
