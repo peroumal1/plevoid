@@ -87,8 +87,8 @@ POST /api/playlists/:id/import/{spotify,deezer}
   → resolve playlist ID, fetch up to 50 track URLs
   → batch-insert tracks, enqueue each for Odesli resolution
 
-Queue consumer (max_concurrency=1, 6s between calls, ≤10 req/min)
-  → call Odesli API (sleeps on 429 and retries in-place)
+Queue consumer (max_batch_size=1, max_concurrency=1, 6s pre-call sleep)
+  → call Odesli API (~7s per message, ≤9 req/min; sleeps on 429 and retries in-place)
   → UPDATE tracks SET odesli_data = ?   -- or {_notFound:true} on 404
 
 Frontend polls GET /api/playlists/:id every 5s
@@ -100,7 +100,7 @@ PATCH /api/playlists/:id/tracks/reorder   -- token-protected
 GET  /api/playlists/:id/export.csv        -- public
   → streams CSV with title, artist, url_original, url_odesli, added_at
 
-Cron (weekly):
+Cron (hourly):
   → delete playlists inactive for 90+ days
   → re-enqueue tracks with odesli_data IS NULL older than 1 hour (lost queue messages)
 ```
