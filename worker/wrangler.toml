@@ -30,6 +30,6 @@ crons = ["0 * * * *"]  # every hour
 
 [[queues.consumers]]
 queue = "plevoid-odesli-queue"
-max_batch_size = 10   # at most 10 Odesli calls per batch
+max_batch_size = 1    # one message per invocation — rate limit enforced by the 6s pre-call sleep
 max_batch_timeout = 5   # dispatch quickly; rate limiting handled inside consumer
 max_concurrency = 1   # one batch at a time
