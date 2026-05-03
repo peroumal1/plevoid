@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { verifyToken } from './auth'
+import { verifyToken, verifyAnyToken } from './auth'
 import * as db from './db'
 
 vi.mock('./db', () => ({
   getPlaylistForEdit: vi.fn(),
+  tokenExists: vi.fn(),
 }))
 
 describe('verifyToken', () => {
@@ -58,5 +59,24 @@ describe('verifyToken', () => {
     vi.mocked(db.getPlaylistForEdit).mockResolvedValue(null)
     await verifyToken({} as any, 'specific-id', 'some-token')
     expect(db.getPlaylistForEdit).toHaveBeenCalledWith({}, 'specific-id')
+  })
+})
+
+describe('verifyAnyToken', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns false when token is undefined', async () => {
+    expect(await verifyAnyToken({} as any, undefined)).toBe(false)
+    expect(db.tokenExists).not.toHaveBeenCalled()
+  })
+
+  it('returns false when token does not exist in any playlist', async () => {
+    vi.mocked(db.tokenExists).mockResolvedValue(false)
+    expect(await verifyAnyToken({} as any, 'unknown-token')).toBe(false)
+  })
+
+  it('returns true when token matches a playlist', async () => {
+    vi.mocked(db.tokenExists).mockResolvedValue(true)
+    expect(await verifyAnyToken({} as any, 'valid-token')).toBe(true)
   })
 })

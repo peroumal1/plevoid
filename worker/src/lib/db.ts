@@ -30,6 +30,14 @@ export async function getPlaylistForEdit(
     .first<Playlist & { edit_token: string }>()
 }
 
+export async function tokenExists(db: D1Database, token: string): Promise<boolean> {
+  const row = await db
+    .prepare('SELECT 1 FROM playlists WHERE edit_token = ?')
+    .bind(token)
+    .first()
+  return row !== null
+}
+
 export async function createPlaylist(
   db: D1Database,
   id: string,

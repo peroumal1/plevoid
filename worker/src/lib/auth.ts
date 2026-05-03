@@ -1,8 +1,16 @@
-import { getPlaylistForEdit } from './db'
+import { getPlaylistForEdit, tokenExists } from './db'
 import type { Playlist } from './db'
 
 type TokenError = { err: string; status: 401 | 403 | 404 }
 type TokenOk = { playlist: Playlist & { edit_token: string } }
+
+export async function verifyAnyToken(
+  db: D1Database,
+  token: string | undefined
+): Promise<boolean> {
+  if (!token) return false
+  return tokenExists(db, token)
+}
 
 export async function verifyToken(
   db: D1Database,
