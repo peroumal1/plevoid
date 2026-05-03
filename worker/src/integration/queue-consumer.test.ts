@@ -99,6 +99,19 @@ describe("queue consumer", () => {
     expect((await getOdesliData(trackId))._notFound).toBe(true)
   })
 
+  it("stores _notFound and acks on non-retryable 4xx (e.g. 400)", async () => {
+    const trackId = await insertTrack()
+    const { batch, ack, retry } = makeBatch(trackId, 'https://open.spotify.com/track/test')
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({ ok: false, status: 400 }))
+
+    await runConsumer(batch)
+
+    expect(ack).toHaveBeenCalledOnce()
+    expect(retry).not.toHaveBeenCalled()
+    expect((await getOdesliData(trackId))._notFound).toBe(true)
+  })
+
   it("sleeps full Retry-After on 429, then acks on success", async () => {
     const trackId = await insertTrack()
     const { batch, ack, retry } = makeBatch(trackId, 'https://open.spotify.com/track/test')
