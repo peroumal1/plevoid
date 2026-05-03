@@ -14,8 +14,9 @@
     body { font-family: system-ui, sans-serif; max-width: 680px; margin: 4rem auto; padding: 0 1.5rem; color: #111; }
 
     .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .nav a { font-size: 0.85rem; color: #888; text-decoration: none; display: flex; align-items: center; gap: 0.35rem; }
-    .nav a:hover { color: #111; }
+    .nav a, .nav-btn { font-size: 0.85rem; color: #888; text-decoration: none; display: flex; align-items: center; gap: 0.35rem; background: none; border: none; cursor: pointer; padding: 0; font-family: inherit; }
+    .nav a:hover, .nav-btn:hover { color: #111; }
+    .nav-right { display: flex; align-items: center; gap: 1rem; }
 
     .title-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
     h1 { font-size: 1.8rem; margin: 0; }
@@ -65,21 +66,20 @@
 
     .btn-text { background: none; border: none; cursor: pointer; color: #aaa; font-size: 0.8rem; padding: 0; font-family: inherit; }
     .btn-text:hover { color: #555; }
-    #bulk-toggle-wrap { text-align: right; margin-top: -0.75rem; margin-bottom: 0.5rem; }
-    #bulk-section { margin: 1.5rem 0; }
-    #bulk-section .bulk-hint { font-size: 0.82rem; color: #999; margin: 0 0 0.5rem; }
-    #bulk-input { width: 100%; padding: 0.65rem 0.9rem; font-size: 0.9rem; border: 1px solid #ddd; border-radius: 6px; outline: none; resize: vertical; min-height: 110px; transition: border-color 0.15s; font-family: monospace; }
-    #bulk-input:focus { border-color: #111; }
-    .bulk-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.6rem; }
-    #spotify-input { width: 100%; padding: 0.65rem 0.9rem; font-size: 0.9rem; border: 1px solid #ddd; border-radius: 6px; outline: none; transition: border-color 0.15s; }
-    #spotify-input:focus { border-color: #111; }
-    #spotify-status { font-size: 0.85rem; color: #999; }
+    #import-panel { margin: 1.5rem 0; }
+    .import-hint { font-size: 0.82rem; color: #999; margin: 0 0 0.5rem; }
+    #import-textarea { width: 100%; padding: 0.65rem 0.9rem; font-size: 0.9rem; border: 1px solid #ddd; border-radius: 6px; outline: none; resize: vertical; min-height: 120px; transition: border-color 0.15s; font-family: monospace; }
+    #import-textarea:focus { border-color: #111; }
+    .import-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.6rem; }
   </style>
 </head>
 <body>
   <div class="nav">
     <a href="/"><i class="fa-solid fa-arrow-left"></i> Plevoid</a>
-    <a id="public-link" href="#" hidden><i class="fa-solid fa-eye"></i> Public view</a>
+    <div class="nav-right">
+      <a id="public-link" href="#" hidden><i class="fa-solid fa-eye"></i> Public view</a>
+      <button id="import-btn" class="nav-btn" hidden><i class="fa-solid fa-file-import"></i> Import</button>
+    </div>
   </div>
 
   <div class="title-row">
@@ -112,32 +112,15 @@
       <i class="fa-solid fa-plus"></i> Add
     </button>
   </form>
-  <div id="bulk-toggle-wrap">
-    <button type="button" id="bulk-toggle" class="btn-text">Add multiple URLs</button>
-    <span style="color:#ddd;margin:0 0.25rem">·</span>
-    <button type="button" id="spotify-toggle" class="btn-text"><i class="fa-brands fa-spotify"></i> Import Spotify playlist</button>
-  </div>
 
-  <div id="bulk-section" hidden>
-    <p class="bulk-hint">One URL per line — Spotify, Apple Music, YouTube, and others.</p>
-    <textarea id="bulk-input" placeholder="https://open.spotify.com/track/…&#10;https://music.apple.com/…"></textarea>
-    <div class="bulk-actions">
-      <button type="button" id="bulk-submit" class="btn-primary" disabled>
-        <i class="fa-solid fa-plus"></i> Add tracks
+  <div id="import-panel" hidden>
+    <p class="import-hint">Paste a Spotify or Deezer playlist URL, or multiple track URLs — one per line.</p>
+    <textarea id="import-textarea" placeholder="https://open.spotify.com/playlist/…&#10;https://www.deezer.com/playlist/…&#10;&#10;or multiple track URLs, one per line"></textarea>
+    <div class="import-actions">
+      <button type="button" id="import-submit" class="btn-primary" disabled>
+        <i class="fa-solid fa-file-import"></i> Import
       </button>
-      <button type="button" id="bulk-cancel" class="btn-text">Cancel</button>
-    </div>
-  </div>
-
-  <div id="spotify-section" hidden>
-    <p class="bulk-hint">Paste a public Spotify playlist URL. Spotify editorial playlists (Discover Weekly, charts) are not supported.</p>
-    <input type="url" id="spotify-input" placeholder="https://open.spotify.com/playlist/…" autocomplete="off">
-    <div class="bulk-actions">
-      <button type="button" id="spotify-submit" class="btn-primary" disabled>
-        <i class="fa-brands fa-spotify"></i> Import playlist
-      </button>
-      <button type="button" id="spotify-cancel" class="btn-text">Cancel</button>
-      <span id="spotify-status"></span>
+      <button type="button" id="import-close" class="btn-text">Cancel</button>
     </div>
   </div>
 
@@ -170,7 +153,6 @@
     if (!token) {
       document.getElementById('no-token').hidden = false
       document.getElementById('add-form').hidden = true
-      document.getElementById('bulk-toggle-wrap').hidden = true
     }
 
     let tracks = []
@@ -198,15 +180,12 @@
 
     // --- Odesli polling ---
     // Tracks saved to D1 without odesli_data while the queue resolves them.
-    // Poll every 5s until all are enriched or we give up after 5 min.
+    // Poll every 5s until all are enriched or we give up.
     let pollTimer = null
+    let safetyTimer = null
 
     function needsOdesli() {
       return tracks.some(t => !t.pending && !t.error && t.odesli_data === null)
-    }
-
-    function isResolved(t) {
-      return t.odesli_data !== null  // includes _notFound — either way, no longer pending
     }
 
     async function pollOdesli() {
@@ -227,15 +206,19 @@
     }
 
     function startPolling() {
+      // Always reset the safety window — imports extend the deadline.
+      // Worst case: 50 tracks × 6s/call across 5 serial batches ≈ 6 min.
+      clearTimeout(safetyTimer)
+      safetyTimer = setTimeout(stopPolling, 10 * 60 * 1000)
       if (pollTimer) return
       pollTimer = setInterval(pollOdesli, 5000)
-      // safety: stop after 5 min regardless
-      setTimeout(stopPolling, 5 * 60 * 1000)
     }
 
     function stopPolling() {
       clearInterval(pollTimer)
+      clearTimeout(safetyTimer)
       pollTimer = null
+      safetyTimer = null
     }
 
     async function load() {
@@ -253,6 +236,7 @@
         if (token) {
           savePlaylist(id, token, data.title)
           document.getElementById('rename-btn').hidden = false
+          document.getElementById('import-btn').hidden = false
         }
 
         tracks = data.tracks
@@ -527,7 +511,7 @@
         const idx = tracks.findIndex(t => t.id === tempId)
         if (idx !== -1) tracks[idx] = data
         renderTracks()
-        startPolling()
+        if (needsOdesli()) startPolling()
       } catch (err) {
         const idx = tracks.findIndex(t => t.id === tempId)
         if (idx !== -1) tracks[idx] = { ...tracks[idx], pending: false, error: err.message }
@@ -535,155 +519,138 @@
       }
     })
 
-    // --- Bulk add ---
-    const bulkSubmit = document.getElementById('bulk-submit')
-    const bulkInput = document.getElementById('bulk-input')
+    // --- Import panel (Spotify, Deezer, bulk URLs) ---
+    function analyzeContent(val) {
+      const lines = val.split('\n').map(l => l.trim()).filter(Boolean)
+      if (!lines.length) return { type: null }
+      if (lines.length === 1) {
+        const v = lines[0]
+        try {
+          const u = new URL(v)
+          if (u.hostname === 'open.spotify.com' && u.pathname.startsWith('/playlist/'))
+            return { type: 'spotify', url: v }
+          if (((u.hostname === 'www.deezer.com' || u.hostname === 'deezer.com') && u.pathname.includes('/playlist/')) || u.hostname === 'link.deezer.com')
+            return { type: 'deezer', url: v }
+        } catch {}
+      }
+      const urls = lines.filter(isUrl)
+      if (urls.length) return { type: 'urls', urls }
+      return { type: null }
+    }
 
-    function openBulk() {
+    function openImport() {
       document.getElementById('add-form').hidden = true
-      document.getElementById('bulk-toggle-wrap').hidden = true
-      document.getElementById('bulk-section').hidden = false
-      bulkInput.focus()
+      document.getElementById('import-panel').hidden = false
+      document.getElementById('import-textarea').focus()
     }
 
-    function closeBulk() {
-      document.getElementById('bulk-section').hidden = true
+    function closeImport() {
+      document.getElementById('import-panel').hidden = true
       document.getElementById('add-form').hidden = false
-      document.getElementById('bulk-toggle-wrap').hidden = false
-      bulkInput.value = ''
-      bulkSubmit.disabled = true
-      bulkSubmit.innerHTML = '<i class="fa-solid fa-plus"></i> Add tracks'
+      document.getElementById('import-textarea').value = ''
+      const btn = document.getElementById('import-submit')
+      btn.disabled = true
+      btn.innerHTML = '<i class="fa-solid fa-file-import"></i> Import'
     }
 
-    document.getElementById('bulk-toggle').addEventListener('click', openBulk)
-    document.getElementById('bulk-cancel').addEventListener('click', closeBulk)
+    document.getElementById('import-btn').addEventListener('click', openImport)
+    document.getElementById('import-close').addEventListener('click', closeImport)
 
-    bulkInput.addEventListener('input', () => {
-      const count = bulkInput.value.split('\n').map(l => l.trim()).filter(isUrl).length
-      bulkSubmit.disabled = count === 0
-      bulkSubmit.innerHTML = count > 0
-        ? `<i class="fa-solid fa-plus"></i> Add ${count} track${count !== 1 ? 's' : ''}`
-        : '<i class="fa-solid fa-plus"></i> Add tracks'
-    })
-
-    bulkSubmit.addEventListener('click', async () => {
-      const urls = bulkInput.value.split('\n').map(l => l.trim()).filter(isUrl)
-      if (!urls.length) return
-
-      const realCount = tracks.filter(t => !t.pending).length
-      const available = 50 - realCount
-      const toAdd = urls.slice(0, available)
-
-      if (toAdd.length < urls.length) {
-        setGlobalError(`Playlist limit: adding ${toAdd.length} of ${urls.length} URLs (50 track max)`)
+    document.getElementById('import-textarea').addEventListener('input', () => {
+      const analysis = analyzeContent(document.getElementById('import-textarea').value)
+      const btn = document.getElementById('import-submit')
+      if (analysis.type === 'spotify') {
+        btn.disabled = false
+        btn.innerHTML = '<i class="fa-brands fa-spotify"></i> Import from Spotify'
+      } else if (analysis.type === 'deezer') {
+        btn.disabled = false
+        btn.innerHTML = '<i class="fa-brands fa-deezer"></i> Import from Deezer'
+      } else if (analysis.type === 'urls') {
+        const n = analysis.urls.length
+        btn.disabled = false
+        btn.innerHTML = `<i class="fa-solid fa-plus"></i> Add ${n} track${n !== 1 ? 's' : ''}`
       } else {
-        setGlobalError('')
+        btn.disabled = true
+        btn.innerHTML = '<i class="fa-solid fa-file-import"></i> Import'
       }
-      if (!toAdd.length) return
-
-      closeBulk()
-
-      const tempIds = toAdd.map(() => `pending-${crypto.randomUUID()}`)
-      toAdd.forEach((url, i) => {
-        tracks.push({ id: tempIds[i], url_original: url, odesli_data: null, pending: true })
-      })
-      renderTracks()
-
-      const results = await Promise.all(toAdd.map((url, i) =>
-        fetch(`/api/playlists/${id}/tracks`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
-          body: JSON.stringify({ url }),
-        })
-          .then(async res => {
-            const data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Failed to add')
-            return { tempId: tempIds[i], data }
-          })
-          .catch(err => ({ tempId: tempIds[i], error: err.message }))
-      ))
-
-      for (const r of results) {
-        const idx = tracks.findIndex(t => t.id === r.tempId)
-        if (idx === -1) continue
-        tracks[idx] = r.error
-          ? { ...tracks[idx], pending: false, error: r.error }
-          : r.data
-      }
-      renderTracks()
-      startPolling()
     })
 
-    // --- Spotify import ---
-    function isSpotifyPlaylistUrl(val) {
-      try {
-        const u = new URL(val)
-        return u.hostname === 'open.spotify.com' && u.pathname.startsWith('/playlist/')
-      } catch { return false }
-    }
+    document.getElementById('import-submit').addEventListener('click', async () => {
+      const analysis = analyzeContent(document.getElementById('import-textarea').value)
+      if (!analysis.type) return
 
-    function openSpotify() {
-      document.getElementById('add-form').hidden = true
-      document.getElementById('bulk-toggle-wrap').hidden = true
-      document.getElementById('spotify-section').hidden = false
-      document.getElementById('spotify-input').focus()
-    }
-
-    function closeSpotify() {
-      document.getElementById('spotify-section').hidden = true
-      document.getElementById('add-form').hidden = false
-      document.getElementById('bulk-toggle-wrap').hidden = false
-      document.getElementById('spotify-input').value = ''
-      document.getElementById('spotify-submit').disabled = true
-      document.getElementById('spotify-status').textContent = ''
-    }
-
-    document.getElementById('spotify-toggle').addEventListener('click', openSpotify)
-    document.getElementById('spotify-cancel').addEventListener('click', closeSpotify)
-
-    document.getElementById('spotify-input').addEventListener('input', () => {
-      const val = document.getElementById('spotify-input').value.trim()
-      document.getElementById('spotify-submit').disabled = !isSpotifyPlaylistUrl(val)
-      document.getElementById('spotify-status').textContent = ''
-    })
-
-    document.getElementById('spotify-submit').addEventListener('click', async () => {
-      const playlistUrl = document.getElementById('spotify-input').value.trim()
-      if (!isSpotifyPlaylistUrl(playlistUrl)) return
-
-      const submitBtn = document.getElementById('spotify-submit')
-      const statusEl = document.getElementById('spotify-status')
-      submitBtn.disabled = true
-      submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Importing…'
-      statusEl.textContent = ''
+      const btn = document.getElementById('import-submit')
+      btn.disabled = true
       setGlobalError('')
 
-      try {
-        const res = await fetch(`/api/playlists/${id}/import/spotify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
-          body: JSON.stringify({ playlist_url: playlistUrl }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Import failed')
+      if (analysis.type === 'spotify' || analysis.type === 'deezer') {
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Importing…'
+        try {
+          const res = await fetch(`/api/playlists/${id}/import/${analysis.type}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
+            body: JSON.stringify({ playlist_url: analysis.url }),
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Import failed')
 
-        closeSpotify()
-        const msg = data.skipped > 0
-          ? `Imported ${data.imported} track${data.imported !== 1 ? 's' : ''} (${data.skipped} skipped — playlist full)`
-          : `Imported ${data.imported} track${data.imported !== 1 ? 's' : ''}`
+          closeImport()
+          const msg = data.skipped > 0
+            ? `Imported ${data.imported} track${data.imported !== 1 ? 's' : ''} (${data.skipped} skipped — playlist full)`
+            : `Imported ${data.imported} track${data.imported !== 1 ? 's' : ''}`
 
-        const res2 = await fetch(`/api/playlists/${id}`)
-        if (res2.ok) {
-          const fresh = await res2.json()
-          tracks = fresh.tracks
-          renderTracks()
-          if (needsOdesli()) startPolling()
+          const res2 = await fetch(`/api/playlists/${id}`)
+          if (res2.ok) {
+            const fresh = await res2.json()
+            tracks = fresh.tracks
+            renderTracks()
+            if (needsOdesli()) startPolling()
+          }
+          setGlobalNotice(msg)
+        } catch (err) {
+          setGlobalError(err.message)
+          btn.disabled = false
+          btn.innerHTML = analysis.type === 'spotify'
+            ? '<i class="fa-brands fa-spotify"></i> Import from Spotify'
+            : '<i class="fa-brands fa-deezer"></i> Import from Deezer'
         }
-        setGlobalNotice(msg)
-      } catch (err) {
-        setGlobalError(err.message)
-        submitBtn.disabled = false
-        submitBtn.innerHTML = '<i class="fa-brands fa-spotify"></i> Import playlist'
+      } else {
+        const urls = analysis.urls
+        const available = 50 - tracks.filter(t => !t.pending).length
+        const toAdd = urls.slice(0, available)
+        if (toAdd.length < urls.length)
+          setGlobalError(`Playlist limit: adding ${toAdd.length} of ${urls.length} URLs (50 track max)`)
+        if (!toAdd.length) { btn.disabled = false; return }
+
+        closeImport()
+
+        const tempIds = toAdd.map(() => `pending-${crypto.randomUUID()}`)
+        toAdd.forEach((url, i) => {
+          tracks.push({ id: tempIds[i], url_original: url, odesli_data: null, pending: true })
+        })
+        renderTracks()
+
+        const results = await Promise.all(toAdd.map((url, i) =>
+          fetch(`/api/playlists/${id}/tracks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Edit-Token': token },
+            body: JSON.stringify({ url }),
+          })
+            .then(async res => {
+              const data = await res.json()
+              if (!res.ok) throw new Error(data.error || 'Failed to add')
+              return { tempId: tempIds[i], data }
+            })
+            .catch(err => ({ tempId: tempIds[i], error: err.message }))
+        ))
+
+        for (const r of results) {
+          const idx = tracks.findIndex(t => t.id === r.tempId)
+          if (idx === -1) continue
+          tracks[idx] = r.error ? { ...tracks[idx], pending: false, error: r.error } : r.data
+        }
+        renderTracks()
+        startPolling()
       }
     })
 
