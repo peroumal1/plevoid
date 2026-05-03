@@ -31,6 +31,10 @@
     .title-edit input:focus { border-color: #111; }
 
     .warning { background: #fff8e1; border: 1px solid #f0c060; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.9rem; margin-bottom: 1rem; }
+    #save-notice { display: flex; align-items: center; justify-content: space-between; gap: 1rem; background: #f0f7ff; border: 1px solid #b6d4fe; padding: 0.65rem 1rem; border-radius: 6px; font-size: 0.85rem; color: #1a4a7a; margin-bottom: 1.25rem; }
+    #save-notice a { color: #1a4a7a; font-weight: 500; }
+    #save-notice-dismiss { background: none; border: none; cursor: pointer; color: #6a9fd8; font-size: 0.9rem; padding: 0; flex-shrink: 0; }
+    #save-notice-dismiss:hover { color: #1a4a7a; }
 
     #add-form { display: flex; gap: 0.5rem; margin: 1.5rem 0; }
     .search-wrap { position: relative; flex: 1; }
@@ -78,6 +82,7 @@
     <a href="/"><i class="fa-solid fa-arrow-left"></i> Plevoid</a>
     <div class="nav-right">
       <a id="public-link" href="#" hidden><i class="fa-solid fa-eye"></i> Public view</a>
+      <button id="copy-link-btn" class="nav-btn" hidden title="Copy your edit link"><i class="fa-solid fa-link"></i> Copy edit link</button>
       <button id="import-btn" class="nav-btn" hidden><i class="fa-solid fa-file-import"></i> Import</button>
     </div>
   </div>
@@ -101,6 +106,11 @@
   <div id="no-token" class="warning" hidden>
     <i class="fa-solid fa-triangle-exclamation"></i>
     No edit token found. Open the edit link you saved when creating this playlist, or go back to <a href="/">your playlists</a>.
+  </div>
+
+  <div id="save-notice" hidden>
+    <span><i class="fa-solid fa-circle-info"></i> This URL is your edit link — bookmark it or save it somewhere safe. Clearing browser data will lock you out.</span>
+    <button id="save-notice-dismiss" title="Dismiss"><i class="fa-solid fa-xmark"></i></button>
   </div>
 
   <form id="add-form">
@@ -149,6 +159,9 @@
     const id = window.location.pathname.split('/').filter(Boolean).pop()
     const tokenFromUrl = new URLSearchParams(window.location.hash.slice(1)).get('token')
     const token = tokenFromUrl ?? getStoredToken(id)
+
+    // Always keep the token in the URL so bookmarking / browser history works as a backup
+    if (token && !tokenFromUrl) history.replaceState(null, '', `#token=${token}`)
 
     if (!token) {
       document.getElementById('no-token').hidden = false
@@ -236,7 +249,13 @@
         if (token) {
           savePlaylist(id, token, data.title)
           document.getElementById('rename-btn').hidden = false
+          document.getElementById('copy-link-btn').hidden = false
           document.getElementById('import-btn').hidden = false
+
+          const noticeKey = `plevoid_noticed_${id}`
+          if (tokenFromUrl && !localStorage.getItem(noticeKey)) {
+            document.getElementById('save-notice').hidden = false
+          }
         }
 
         tracks = data.tracks
@@ -247,6 +266,23 @@
         setGlobalError(err.message)
       }
     }
+
+    // --- Copy edit link ---
+    document.getElementById('copy-link-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('copy-link-btn')
+      try {
+        await navigator.clipboard.writeText(window.location.href)
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!'
+        setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-link"></i> Copy edit link' }, 2000)
+      } catch {
+        btn.innerHTML = '<i class="fa-solid fa-link"></i> Copy edit link'
+      }
+    })
+
+    document.getElementById('save-notice-dismiss').addEventListener('click', () => {
+      document.getElementById('save-notice').hidden = true
+      localStorage.setItem(`plevoid_noticed_${id}`, '1')
+    })
 
     // --- Rename ---
     document.getElementById('rename-btn').addEventListener('click', () => {
