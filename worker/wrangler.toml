@@ -26,7 +26,7 @@ queue = "plevoid-odesli-queue"
 binding = "ODESLI_QUEUE"
 
 [triggers]
-crons = ["0 * * * *"]  # every hour
+crons = ["*/10 * * * *"]  # every 10 minutes
 
 [[queues.consumers]]
 queue = "plevoid-odesli-queue"

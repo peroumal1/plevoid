@@ -37,7 +37,7 @@ export default {
     console.log(`Retention: deleted ${deleted} playlists older than 90 days`)
 
     // Re-enqueue tracks whose odesli_data is still null after 1 hour (queue message was lost)
-    const stuckCutoff = now - 60 * 60
+    const stuckCutoff = now - 10 * 60
     const { results: stuck } = await env.plevoid_db
       .prepare('SELECT id, url_original FROM tracks WHERE odesli_data IS NULL AND added_at < ?')
       .bind(stuckCutoff)
