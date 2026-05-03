@@ -9,7 +9,10 @@ export function extractSpotifyPlaylistId(url: string): string | null {
   }
 }
 
+let tokenCache: { value: string; expiresAt: number } | null = null
+
 async function getAccessToken(clientId: string, clientSecret: string): Promise<string> {
+  if (tokenCache && Date.now() < tokenCache.expiresAt) return tokenCache.value
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
@@ -19,8 +22,9 @@ async function getAccessToken(clientId: string, clientSecret: string): Promise<s
     body: 'grant_type=client_credentials',
   })
   if (!res.ok) throw new Error(`Spotify auth failed (${res.status})`)
-  const data = await res.json() as { access_token: string }
-  return data.access_token
+  const data = await res.json() as { access_token: string; expires_in: number }
+  tokenCache = { value: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 }
+  return tokenCache.value
 }
 
 type SpotifyTracksResponse = {
@@ -54,4 +58,39 @@ export async function fetchSpotifyPlaylistTracks(
     .filter((url): url is string => Boolean(url))
 
   return { urls, total: data.total }
+}
+
+type SpotifySearchItem = {
+  name: string
+  artists: Array<{ name: string }>
+  album: { images: Array<{ url: string }> }
+  external_urls: { spotify: string }
+}
+
+export type SpotifySearchResult = {
+  title: string
+  artist: string
+  artwork: string
+  url: string
+}
+
+export async function searchSpotify(
+  clientId: string,
+  clientSecret: string,
+  query: string
+): Promise<SpotifySearchResult[]> {
+  const token = await getAccessToken(clientId, clientSecret)
+  const qs = new URLSearchParams({ q: query, type: 'track', limit: '5' })
+  const res = await fetch(`https://api.spotify.com/v1/search?${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) return []
+  const data = await res.json() as { tracks: { items: SpotifySearchItem[] } }
+  return data.tracks.items.map(item => ({
+    title: item.name,
+    artist: item.artists[0]?.name ?? '',
+    // images are ordered largest→smallest; use last for smallest footprint
+    artwork: item.album.images.at(-1)?.url ?? '',
+    url: item.external_urls.spotify,
+  }))
 }
