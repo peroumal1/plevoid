@@ -47,11 +47,9 @@ export default {
   },
 
   async queue(batch: MessageBatch<QueueMessage>, env: Bindings): Promise<void> {
-    for (let i = 0; i < batch.messages.length; i++) {
-      const msg = batch.messages[i]
+    for (const msg of batch.messages) {
       const { trackId, url } = msg.body
-      // 6s between calls keeps a full batch of 10 under the 10 req/min anonymous limit
-      if (i > 0) await new Promise(r => setTimeout(r, 6000))
+      await new Promise(r => setTimeout(r, 6000))
       try {
         const odesli = await fetchOdesli(url, env.ODESLI_API_KEY, { waitOnRateLimit: true })
         await updateTrackOdesli(env.plevoid_db, trackId, JSON.stringify(odesli ?? { _notFound: true }))
