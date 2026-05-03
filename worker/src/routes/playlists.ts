@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
-import { createPlaylist, getPlaylist, getPlaylistForEdit, getTracks, updatePlaylistTitle, updateLastAccessed } from '../lib/db'
+import { createPlaylist, getPlaylist, getTracks, updatePlaylistTitle, updateLastAccessed } from '../lib/db'
 import { tracksToCSV } from '../lib/export'
+import { verifyToken } from '../lib/auth'
 
 export const playlistRoutes = new Hono<{ Bindings: Bindings }>()
 
@@ -68,10 +69,8 @@ playlistRoutes.get('/:id', async (c) => {
 })
 
 playlistRoutes.patch('/:id', async (c) => {
-  const token = c.req.header('X-Edit-Token')
-  const playlist = await getPlaylistForEdit(c.env.plevoid_db, c.req.param('id'))
-  if (!playlist) return c.json({ error: 'not found' }, 404)
-  if (!token || playlist.edit_token !== token) return c.json({ error: 'forbidden' }, 403)
+  const check = await verifyToken(c.env.plevoid_db, c.req.param('id'), c.req.header('X-Edit-Token'))
+  if ('err' in check) return c.json({ error: check.err }, check.status)
 
   let body: { title?: string }
   try { body = await c.req.json() } catch { return c.json({ error: 'invalid JSON' }, 400) }
@@ -79,6 +78,6 @@ playlistRoutes.patch('/:id', async (c) => {
   const title = body.title?.trim()
   if (!title) return c.json({ error: 'title required' }, 400)
 
-  await updatePlaylistTitle(c.env.plevoid_db, playlist.id, title)
-  return c.json({ id: playlist.id, title })
+  await updatePlaylistTitle(c.env.plevoid_db, check.playlist.id, title)
+  return c.json({ id: check.playlist.id, title })
 })

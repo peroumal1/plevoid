@@ -59,6 +59,7 @@
     .track-error { font-size: 0.8rem; color: #c00; margin-top: 0.25rem; }
 
     #global-error { color: #c00; margin: 0.5rem 0; font-size: 0.9rem; min-height: 1.2em; }
+    #global-notice { color: #2a9d5c; margin: 0.5rem 0; font-size: 0.9rem; min-height: 1.2em; }
     .empty { color: #999; font-size: 0.95rem; }
     .retention-notice { margin-top: 3rem; font-size: 0.8rem; color: #bbb; text-align: center; }
 
@@ -141,6 +142,7 @@
   </div>
 
   <div id="global-error"></div>
+  <div id="global-notice"></div>
   <div id="tracks"></div>
   <p class="retention-notice">
     Playlists are limited to 50 tracks and deleted after 90 days of inactivity. &nbsp;·&nbsp;
@@ -183,6 +185,15 @@
 
     function setGlobalError(msg) {
       document.getElementById('global-error').textContent = msg || ''
+      if (msg) document.getElementById('global-notice').textContent = ''
+    }
+
+    let noticeTimer = null
+    function setGlobalNotice(msg) {
+      document.getElementById('global-notice').textContent = msg || ''
+      document.getElementById('global-error').textContent = ''
+      clearTimeout(noticeTimer)
+      if (msg) noticeTimer = setTimeout(() => { document.getElementById('global-notice').textContent = '' }, 5000)
     }
 
     // --- Odesli polling ---
@@ -658,9 +669,8 @@
 
         closeSpotify()
         const msg = data.skipped > 0
-          ? `Imported ${data.imported} track${data.imported !== 1 ? 's' : ''} (${data.skipped} skipped — playlist full or unavailable)`
+          ? `Imported ${data.imported} track${data.imported !== 1 ? 's' : ''} (${data.skipped} skipped — playlist full)`
           : `Imported ${data.imported} track${data.imported !== 1 ? 's' : ''}`
-        setGlobalError('')
 
         const res2 = await fetch(`/api/playlists/${id}`)
         if (res2.ok) {
@@ -669,12 +679,7 @@
           renderTracks()
           if (needsOdesli()) startPolling()
         }
-        // show result inline after tracks
-        const note = document.createElement('p')
-        note.style.cssText = 'font-size:0.85rem;color:#2a9d5c;margin:0.5rem 0'
-        note.textContent = msg
-        document.getElementById('tracks').prepend(note)
-        setTimeout(() => note.remove(), 5000)
+        setGlobalNotice(msg)
       } catch (err) {
         setGlobalError(err.message)
         submitBtn.disabled = false

@@ -1,22 +1,11 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
-import { getPlaylistForEdit, deleteTrack, getTrackCount, reorderTracks } from '../lib/db'
+import { deleteTrack, getTrackCount, reorderTracks } from '../lib/db'
 import { parseMusicUrl, SUPPORTED_PLATFORMS } from '../lib/validate'
 import { addTrack } from '../lib/track-actions'
+import { verifyToken } from '../lib/auth'
 
 export const trackRoutes = new Hono<{ Bindings: Bindings }>()
-
-async function verifyToken(
-  db: D1Database,
-  id: string,
-  token: string | undefined
-) {
-  if (!token) return { err: 'missing X-Edit-Token', status: 401 as const }
-  const playlist = await getPlaylistForEdit(db, id)
-  if (!playlist) return { err: 'not found', status: 404 as const }
-  if (playlist.edit_token !== token) return { err: 'forbidden', status: 403 as const }
-  return { playlist }
-}
 
 trackRoutes.post('/:id/tracks', async (c) => {
   const check = await verifyToken(c.env.plevoid_db, c.req.param('id'), c.req.header('X-Edit-Token'))
