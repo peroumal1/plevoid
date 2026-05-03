@@ -6,11 +6,13 @@ Paste any Spotify, Apple Music, YouTube, or Deezer URL — Plevoid resolves it v
 
 ## Features
 
-- Create and share playlists with a public link; edit via a secret token stored in `localStorage`
-- Song search autocomplete (iTunes API, geo-localised)
-- Odesli enrichment: artwork, title, artist, and cross-platform links resolved asynchronously
-- Track reordering via up/down buttons
+- Create and share playlists with a public link; edit via a secret token stored in `localStorage` and the URL hash
+- Song search autocomplete (iTunes + Spotify, interleaved and deduped)
+- Import public playlists from Spotify or Deezer (including link.deezer.com short links)
 - Bulk URL import — paste multiple URLs at once
+- Odesli enrichment: artwork, title, artist, and cross-platform links resolved asynchronously
+- Search-added tracks render immediately with preview metadata; full Odesli data fills in via queue
+- Track reordering via up/down buttons
 - CSV export of any playlist
 - 50-track limit per playlist; playlists deleted after 90 days of inactivity
 
@@ -51,7 +53,11 @@ npx wrangler d1 create plevoid-db          # paste the database_id into wrangler
 npx wrangler queues create plevoid-odesli-queue
 npx wrangler d1 execute plevoid-db --remote --file=schema.sql
 
-# optional — raises Odesli anonymous rate limit
+# required for Spotify import and search
+npx wrangler secret put SPOTIFY_CLIENT_ID
+npx wrangler secret put SPOTIFY_CLIENT_SECRET
+
+# optional — song.link stopped issuing new API keys; anonymous mode works at 10 req/min
 npx wrangler secret put ODESLI_API_KEY
 ```
 
@@ -74,27 +80,34 @@ npx wrangler d1 execute plevoid-db --remote --command="ALTER TABLE tracks ADD CO
 ```
 POST /api/playlists/:id/tracks
   → validate URL, check 50-track limit
-  → insert track row (odesli_data = null, position = MAX+1)
-  → enqueue { trackId, url }
-  → return immediately
+  → if metadata (search pick): store _preview stub, enqueue, return immediately
+  → else: call Odesli synchronously; on error/429 fall back to queue
 
-Queue consumer (≤10 req/min, 6s between calls)
-  → call Odesli API
+POST /api/playlists/:id/import/{spotify,deezer}
+  → resolve playlist ID, fetch up to 50 track URLs
+  → batch-insert tracks, enqueue each for Odesli resolution
+
+Queue consumer (max_concurrency=1, 6s between calls, ≤10 req/min)
+  → call Odesli API (sleeps on 429 and retries in-place)
   → UPDATE tracks SET odesli_data = ?   -- or {_notFound:true} on 404
 
 Frontend polls GET /api/playlists/:id every 5s
-  → updates track cards when odesli_data arrives
+  → updates track cards when odesli_data arrives or _preview clears
 
 PATCH /api/playlists/:id/tracks/reorder   -- token-protected
   → batch-updates position column
 
 GET  /api/playlists/:id/export.csv        -- public
   → streams CSV with title, artist, url_original, url_odesli, added_at
+
+Cron (weekly):
+  → delete playlists inactive for 90+ days
+  → re-enqueue tracks with odesli_data IS NULL older than 1 hour (lost queue messages)
 ```
 
-Each playlist has a public `id` (12-char UUID slice) and a secret `edit_token` (full UUID). The token is returned once at creation and stored in `localStorage`. It is never returned by the public read endpoint.
+Each playlist has a public `id` (UUID v4) and a secret `edit_token` (UUID v4). The token is returned once at creation, stored in `localStorage` and the URL hash (`#token=...`), and is never returned by the public read endpoint.
 
-Supported platforms: Spotify, Apple Music, YouTube, YouTube Music, Deezer, SoundCloud, Amazon Music, Bandcamp.
+Supported platforms: Spotify, Apple Music, YouTube, YouTube Music, Deezer, Tidal, SoundCloud, Amazon Music, Bandcamp, Napster, Anghami, Boomplay, Pandora.
 
 ## Versioning
 
