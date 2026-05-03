@@ -21,6 +21,8 @@ jobs:
         working-directory: worker
       - run: npm test
         working-directory: worker
+      - run: npm run test:integration
+        working-directory: worker
 
   deploy:
     name: Deploy
