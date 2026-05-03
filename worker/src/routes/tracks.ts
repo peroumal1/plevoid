@@ -28,7 +28,7 @@ trackRoutes.post('/:id/tracks', async (c) => {
   const count = await getTrackCount(c.env.plevoid_db, check.playlist.id)
   if (count >= 50) return c.json({ error: 'playlist limit reached (50 tracks maximum)' }, 400)
 
-  const track = await addTrack(c.env.plevoid_db, c.env.ODESLI_QUEUE, check.playlist.id, parsed.href)
+  const track = await addTrack(c.env.plevoid_db, c.env.ODESLI_QUEUE, check.playlist.id, parsed.href, c.env.ODESLI_API_KEY)
   return c.json(track, 201)
 })
 

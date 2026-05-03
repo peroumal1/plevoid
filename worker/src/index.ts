@@ -30,9 +30,20 @@ export default {
   fetch: app.fetch.bind(app),
 
   async scheduled(_event: ScheduledEvent, env: Bindings): Promise<void> {
-    const cutoff = Math.floor(Date.now() / 1000) - 90 * 24 * 60 * 60
+    const now = Math.floor(Date.now() / 1000)
+
+    const cutoff = now - 90 * 24 * 60 * 60
     const deleted = await deleteOldPlaylists(env.plevoid_db, cutoff)
     console.log(`Retention: deleted ${deleted} playlists older than 90 days`)
+
+    // Re-enqueue tracks whose odesli_data is still null after 1 hour (queue message was lost)
+    const stuckCutoff = now - 60 * 60
+    const { results: stuck } = await env.plevoid_db
+      .prepare('SELECT id, url_original FROM tracks WHERE odesli_data IS NULL AND added_at < ?')
+      .bind(stuckCutoff)
+      .all<{ id: string; url_original: string }>()
+    await Promise.all(stuck.map(t => env.ODESLI_QUEUE.send({ trackId: t.id, url: t.url_original })))
+    if (stuck.length) console.log(`Recovery: re-enqueued ${stuck.length} stuck tracks`)
   },
 
   async queue(batch: MessageBatch<QueueMessage>, env: Bindings): Promise<void> {
@@ -42,7 +53,7 @@ export default {
       // 6s between calls keeps a full batch of 10 under the 10 req/min anonymous limit
       if (i > 0) await new Promise(r => setTimeout(r, 6000))
       try {
-        const odesli = await fetchOdesli(url, env.ODESLI_API_KEY)
+        const odesli = await fetchOdesli(url, env.ODESLI_API_KEY, { waitOnRateLimit: true })
         await updateTrackOdesli(env.plevoid_db, trackId, JSON.stringify(odesli ?? { _notFound: true }))
         msg.ack()
       } catch {

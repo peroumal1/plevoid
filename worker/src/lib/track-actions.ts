@@ -1,16 +1,27 @@
 import type { QueueMessage } from '../types'
 import { insertTrack } from './db'
+import { fetchOdesli, type OdesliData } from './odesli'
 
 export async function addTrack(
   db: D1Database,
   queue: Queue<QueueMessage>,
   playlistId: string,
-  url: string
-): Promise<{ id: string; url_original: string; odesli_data: null }> {
+  url: string,
+  odesliApiKey?: string
+): Promise<{ id: string; url_original: string; odesli_data: OdesliData | { _notFound: true } | null }> {
   const trackId = crypto.randomUUID()
-  await insertTrack(db, trackId, playlistId, url, null)
-  await queue.send({ trackId, url })
-  return { id: trackId, url_original: url, odesli_data: null }
+  let odesliData: OdesliData | { _notFound: true } | null = null
+  let useQueue = false
+  try {
+    const result = await fetchOdesli(url, odesliApiKey)
+    odesliData = result ?? { _notFound: true }
+  } catch {
+    // Rate-limited or transient error — fall back to queue for eventual resolution
+    useQueue = true
+  }
+  await insertTrack(db, trackId, playlistId, url, odesliData ? JSON.stringify(odesliData) : null)
+  if (useQueue) await queue.send({ trackId, url })
+  return { id: trackId, url_original: url, odesli_data: odesliData }
 }
 
 export async function addTracks(
