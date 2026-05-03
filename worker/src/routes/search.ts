@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
 import { searchSpotify } from '../lib/spotify'
+import { verifyAnyToken } from '../lib/auth'
 
 export const searchRoutes = new Hono<{ Bindings: Bindings }>()
 
@@ -49,6 +50,10 @@ function interleave<T>(a: T[], b: T[]): T[] {
 }
 
 searchRoutes.get('/', async (c) => {
+  if (!await verifyAnyToken(c.env.plevoid_db, c.req.header('X-Edit-Token'))) {
+    return c.json({ error: 'unauthorized' }, 401)
+  }
+
   const q = c.req.query('q')?.trim() ?? ''
   if (q.length < 2) return c.json({ results: [] })
 

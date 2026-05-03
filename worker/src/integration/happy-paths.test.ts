@@ -150,3 +150,37 @@ describe("Spotify import", () => {
     expect(data.skipped).toBe(0)
   })
 })
+
+describe("search protection", () => {
+  it("returns 401 without a token", async () => {
+    const res = await SELF.fetch("https://worker.test/api/search?q=radiohead")
+    expect(res.status).toBe(401)
+  })
+
+  it("returns 401 with an invalid token", async () => {
+    const res = await SELF.fetch("https://worker.test/api/search?q=radiohead", {
+      headers: { "X-Edit-Token": "not-a-real-token" },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  it("returns results with a valid token", async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) }) // iTunes
+      .mockResolvedValueOnce({                                                   // Spotify auth
+        ok: true,
+        json: async () => ({ access_token: "test-token", expires_in: 3600 }),
+      })
+      .mockResolvedValueOnce({                                                   // Spotify search
+        ok: true,
+        json: async () => ({ tracks: { items: [] } }),
+      })
+    )
+    const res = await SELF.fetch("https://worker.test/api/search?q=radiohead", {
+      headers: { "X-Edit-Token": editToken },
+    })
+    expect(res.status).toBe(200)
+    const data = await res.json() as { results: unknown[] }
+    expect(Array.isArray(data.results)).toBe(true)
+  })
+})
