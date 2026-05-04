@@ -8,12 +8,14 @@ Paste any Spotify, Apple Music, YouTube, or Deezer URL — Plevoid resolves it v
 
 - Create and share playlists with a public link; edit via a secret token stored in `localStorage` and the URL hash
 - Song search autocomplete (iTunes + Spotify, interleaved and deduped)
-- Import public playlists from Spotify or Deezer (including link.deezer.com short links)
-- Bulk URL import — paste multiple URLs at once
+- Import public playlists from Spotify, Deezer (including link.deezer.com short links), or YouTube
+- Bulk URL import — paste multiple track URLs at once
 - Odesli enrichment: artwork, title, artist, and cross-platform links resolved asynchronously
 - Search-added tracks render immediately with preview metadata; full Odesli data fills in via queue
+- Platform icons on each track open an in-page iframe player (Spotify, YouTube, Apple Music, Deezer, SoundCloud, Tidal)
 - Track reordering via up/down buttons
-- CSV export of any playlist
+- CSV export with per-platform URLs (Spotify, Apple Music, YouTube, Deezer, song.link) — compatible with Soundiiz and TuneMyMusic
+- Open Graph meta tags on playlist pages for rich link previews on Bluesky, iMessage, Slack, Discord, etc.
 - 50-track limit per playlist; playlists deleted after 90 days of inactivity
 
 ## Stack
@@ -57,6 +59,9 @@ npx wrangler d1 execute plevoid-db --remote --file=schema.sql
 npx wrangler secret put SPOTIFY_CLIENT_ID
 npx wrangler secret put SPOTIFY_CLIENT_SECRET
 
+# required for YouTube playlist import
+npx wrangler secret put YOUTUBE_API_KEY
+
 # optional — song.link stopped issuing new API keys; anonymous mode works at 10 req/min
 npx wrangler secret put ODESLI_API_KEY
 ```
@@ -83,7 +88,7 @@ POST /api/playlists/:id/tracks
   → if metadata (search pick): store _preview stub, enqueue, return immediately
   → else: call Odesli synchronously; on error/429 fall back to queue
 
-POST /api/playlists/:id/import/{spotify,deezer}
+POST /api/playlists/:id/import/{spotify,deezer,youtube}
   → resolve playlist ID, fetch up to 50 track URLs
   → batch-insert tracks, enqueue each for Odesli resolution
 
@@ -100,7 +105,8 @@ PATCH /api/playlists/:id/tracks/reorder   -- token-protected
   → batch-updates position column
 
 GET  /api/playlists/:id/export.csv        -- public
-  → streams CSV with title, artist, url_original, url_odesli, added_at
+  → CSV with Title, Artist, Spotify URL, Apple Music URL, YouTube URL, Deezer URL, song.link, Added
+  → skips unresolved tracks; X-Skipped-Tracks header reports the count
 
 Cron (every 10 min):
   → delete playlists inactive for 90+ days
