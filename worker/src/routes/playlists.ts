@@ -36,10 +36,11 @@ playlistRoutes.post('/', async (c) => {
 
 playlistRoutes.get('/:id/export.csv', async (c) => {
   const id = c.req.param('id')
-  const playlist = await getPlaylist(c.env.plevoid_db, id)
+  const [playlist, tracks] = await Promise.all([
+    getPlaylist(c.env.plevoid_db, id),
+    getTracks(c.env.plevoid_db, id),
+  ])
   if (!playlist) return c.json({ error: 'not found' }, 404)
-
-  const tracks = await getTracks(c.env.plevoid_db, playlist.id)
   const { csv, skipped } = tracksToCSV(tracks)
   const safeTitle = playlist.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'playlist'
 

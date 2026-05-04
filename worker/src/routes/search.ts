@@ -38,7 +38,6 @@ function dedupeResults(results: SearchResult[]): SearchResult[] {
   })
 }
 
-// Interleave two arrays: [a0, b0, a1, b1, ...]
 function interleave<T>(a: T[], b: T[]): T[] {
   const out: T[] = []
   const len = Math.max(a.length, b.length)

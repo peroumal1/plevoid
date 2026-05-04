@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { PLAYLIST_LIMIT, type Bindings } from '../types'
+import { PLAYLIST_LIMIT, PLAYLIST_LIMIT_ERROR, type Bindings } from '../types'
 import { deleteTrack, getTrackCount, reorderTracks } from '../lib/db'
 import { parseMusicUrl, isPlaylistUrl, SUPPORTED_PLATFORMS } from '../lib/validate'
 import { addTrack } from '../lib/track-actions'
@@ -27,7 +27,7 @@ trackRoutes.post('/:id/tracks', async (c) => {
     return c.json({ error: `invalid URL — must be a track link from: ${SUPPORTED_PLATFORMS}` }, 400)
   }
   const count = await getTrackCount(c.env.plevoid_db, check.playlist.id)
-  if (count >= PLAYLIST_LIMIT) return c.json({ error: `playlist limit reached (${PLAYLIST_LIMIT} tracks maximum)` }, 400)
+  if (count >= PLAYLIST_LIMIT) return c.json({ error: PLAYLIST_LIMIT_ERROR }, 400)
 
   const meta = body.metadata
   const track = await addTrack(c.env.plevoid_db, c.env.ODESLI_QUEUE, check.playlist.id, parsed.href, c.env.ODESLI_API_KEY, meta)

@@ -58,7 +58,7 @@ function stripTracking(url: URL): URL {
   const keep = KEEP_PARAMS[url.hostname]
   if (!keep && url.search === '') return url
 
-  const clean = new URL(url.toString())
+  const clean = new URL(url.href)
   const toDelete: string[] = []
   clean.searchParams.forEach((_, key) => {
     if (!keep || !keep.has(key)) toDelete.push(key)
