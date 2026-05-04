@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseMusicUrl } from './validate'
+import { parseMusicUrl, isPlaylistUrl } from './validate'
 
 describe('parseMusicUrl', () => {
   it('accepts Spotify track URLs', () => {
@@ -71,6 +71,37 @@ describe('parseMusicUrl', () => {
   it('rejects invalid strings', () => {
     expect(parseMusicUrl('not-a-url')).toBeNull()
     expect(parseMusicUrl('')).toBeNull()
+  })
+
+  it('rejects Spotify playlist and artist URLs', () => {
+    expect(parseMusicUrl('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M')).toBeNull()
+    expect(parseMusicUrl('https://open.spotify.com/artist/4dpARuHxo51G3z768sgnrY')).toBeNull()
+  })
+
+  it('accepts Spotify album URLs', () => {
+    expect(parseMusicUrl('https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy')).not.toBeNull()
+  })
+
+  it('rejects Deezer playlist URLs', () => {
+    expect(parseMusicUrl('https://www.deezer.com/playlist/1963962142')).toBeNull()
+  })
+
+  it('accepts Deezer album URLs', () => {
+    expect(parseMusicUrl('https://www.deezer.com/album/302127')).not.toBeNull()
+  })
+
+  it('rejects YouTube playlist and channel URLs', () => {
+    expect(parseMusicUrl('https://www.youtube.com/playlist?list=PLrEnWoR732-BHrPp_Pm8_VleD68f9s14-')).toBeNull()
+    expect(parseMusicUrl('https://www.youtube.com/channel/UCVHFbw7woebEQAqHMtcMFiA')).toBeNull()
+    expect(parseMusicUrl('https://www.youtube.com/@RickAstleyYT')).toBeNull()
+  })
+
+  it('isPlaylistUrl identifies collection URLs', () => {
+    expect(isPlaylistUrl('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M')).toBe(true)
+    expect(isPlaylistUrl('https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh')).toBe(false)
+    expect(isPlaylistUrl('https://www.youtube.com/playlist?list=PLx')).toBe(true)
+    expect(isPlaylistUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(false)
+    expect(isPlaylistUrl('not-a-url')).toBe(false)
   })
 
   it('returns a URL object with href property', () => {
