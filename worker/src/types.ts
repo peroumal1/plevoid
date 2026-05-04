@@ -1,3 +1,5 @@
+export const PLAYLIST_LIMIT = 50
+
 export type QueueMessage = {
   trackId: string
   url: string

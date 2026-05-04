@@ -51,8 +51,7 @@ export default {
       const { trackId, url } = msg.body
       await new Promise(r => setTimeout(r, 6000))
       try {
-        // waitOnRateLimit: sleep the actual Retry-After duration on 429 then retry once.
-        // maxWaitCycles:1 prevents a second consecutive 429 from looping again (execution timeout).
+        // maxWaitCycles: 1 — a second consecutive 429 would push past the execution timeout
         const odesli = await fetchOdesli(url, env.ODESLI_API_KEY, { waitOnRateLimit: true, maxWaitCycles: 1 })
         await updateTrackOdesli(env.plevoid_db, trackId, JSON.stringify(odesli ?? { _notFound: true }))
         msg.ack()
