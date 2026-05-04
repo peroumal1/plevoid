@@ -1,6 +1,6 @@
 {
   "name": "plevoid-worker",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
