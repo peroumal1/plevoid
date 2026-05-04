@@ -50,6 +50,16 @@ describe('parseMusicUrl', () => {
   it('accepts SoundCloud URLs', () => {
     expect(parseMusicUrl('https://soundcloud.com/artist/track')).not.toBeNull()
     expect(parseMusicUrl('https://www.soundcloud.com/artist/track')).not.toBeNull()
+    expect(parseMusicUrl('https://on.soundcloud.com/bkajOOXyAg1ZIp1dUX')).not.toBeNull()
+  })
+
+  it('accepts short/share link domains', () => {
+    expect(parseMusicUrl('https://spotify.link/aBcDeFg')).not.toBeNull()
+    expect(parseMusicUrl('https://apple.co/3xYzABC')).not.toBeNull()
+    expect(parseMusicUrl('https://itun.es/abc123')).not.toBeNull()
+    expect(parseMusicUrl('https://deezer.page.link/b8ywrXxhuLtnk47f6')).not.toBeNull()
+    expect(parseMusicUrl('https://dzr.page.link/abc')).not.toBeNull()
+    expect(parseMusicUrl('https://link.tidal.com/AbCdEfG')).not.toBeNull()
   })
 
   it('accepts Bandcamp artist subdomain URLs', () => {
