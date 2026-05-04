@@ -6,7 +6,7 @@ import { trackRoutes } from './routes/tracks'
 import { importRoutes } from './routes/import'
 import { searchRoutes } from './routes/search'
 import { fetchOdesli } from './lib/odesli'
-import { updateTrackOdesli, deleteOldPlaylists } from './lib/db'
+import { updateTrackOdesli, deleteOldPlaylists, getPlaylist, getTrackCount } from './lib/db'
 import pkg from '../package.json'
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -18,9 +18,36 @@ app.route('/api/playlists', trackRoutes)
 app.route('/api/playlists', importRoutes)
 app.route('/api/search', searchRoutes)
 
-app.get('/p/:id', (c) =>
-  c.env.ASSETS.fetch(new Request(new URL('/playlist.html', c.req.url).toString()))
-)
+app.get('/p/:id', async (c) => {
+  const id = c.req.param('id')
+  const [htmlRes, playlist, count] = await Promise.all([
+    c.env.ASSETS.fetch(new Request(new URL('/playlist.html', c.req.url).toString())),
+    getPlaylist(c.env.plevoid_db, id),
+    getTrackCount(c.env.plevoid_db, id),
+  ])
+
+  const title = playlist ? `${playlist.title} — Plevoid` : 'Plevoid'
+  const description = playlist
+    ? `${count} track${count !== 1 ? 's' : ''} · Shared anonymously on Plevoid`
+    : 'Anonymous music playlist sharing'
+  const canonical = new URL(c.req.url)
+  canonical.pathname = `/p/${id}`
+  canonical.search = ''
+
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+  const og = [
+    `<meta property="og:title" content="${esc(title)}">`,
+    `<meta property="og:description" content="${esc(description)}">`,
+    `<meta property="og:url" content="${esc(canonical.toString())}">`,
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="Plevoid">`,
+    `<meta name="twitter:card" content="summary">`,
+    `<title>${esc(title)}</title>`,
+  ].join('\n  ')
+
+  const html = (await htmlRes.text()).replace('<title>Plevoid</title>', og)
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+})
 app.get('/edit/:id', (c) =>
   c.env.ASSETS.fetch(new Request(new URL('/edit.html', c.req.url).toString()))
 )
