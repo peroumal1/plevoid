@@ -128,8 +128,8 @@
   <p id="import-trigger" hidden>or <button type="button" id="import-open-btn" class="btn-text">import a playlist</button></p>
 
   <div id="import-panel" hidden>
-    <p class="import-hint">Paste a Spotify or Deezer playlist URL, or multiple track URLs — one per line.</p>
-    <textarea id="import-textarea" placeholder="https://open.spotify.com/playlist/…&#10;https://www.deezer.com/playlist/…&#10;&#10;or multiple track URLs, one per line"></textarea>
+    <p class="import-hint">Paste a Spotify, Deezer, or YouTube playlist URL, or multiple track URLs — one per line.</p>
+    <textarea id="import-textarea" placeholder="https://open.spotify.com/playlist/…&#10;https://www.deezer.com/playlist/…&#10;https://www.youtube.com/playlist?list=…&#10;&#10;or multiple track URLs, one per line"></textarea>
     <div class="import-actions">
       <button type="button" id="import-submit" class="btn-primary" disabled>
         <i class="fa-solid fa-file-import"></i> Import
@@ -582,6 +582,8 @@
             return { type: 'spotify', url: v }
           if (((u.hostname === 'www.deezer.com' || u.hostname === 'deezer.com') && u.pathname.includes('/playlist/')) || u.hostname === 'link.deezer.com')
             return { type: 'deezer', url: v }
+          if ((u.hostname === 'www.youtube.com' || u.hostname === 'youtube.com' || u.hostname === 'music.youtube.com') && u.pathname === '/playlist' && u.searchParams.get('list'))
+            return { type: 'youtube', url: v }
         } catch {}
       }
       const urls = lines.filter(isUrl)
@@ -618,6 +620,9 @@
       } else if (analysis.type === 'deezer') {
         btn.disabled = false
         btn.innerHTML = '<i class="fa-brands fa-deezer"></i> Import from Deezer'
+      } else if (analysis.type === 'youtube') {
+        btn.disabled = false
+        btn.innerHTML = '<i class="fa-brands fa-youtube"></i> Import from YouTube'
       } else if (analysis.type === 'urls') {
         const n = analysis.urls.length
         btn.disabled = false
@@ -636,8 +641,13 @@
       btn.disabled = true
       setGlobalError('')
 
-      if (analysis.type === 'spotify' || analysis.type === 'deezer') {
+      if (analysis.type === 'spotify' || analysis.type === 'deezer' || analysis.type === 'youtube') {
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Importing…'
+        const labels = {
+          spotify: '<i class="fa-brands fa-spotify"></i> Import from Spotify',
+          deezer:  '<i class="fa-brands fa-deezer"></i> Import from Deezer',
+          youtube: '<i class="fa-brands fa-youtube"></i> Import from YouTube',
+        }
         try {
           const res = await fetch(`/api/playlists/${id}/import/${analysis.type}`, {
             method: 'POST',
@@ -663,9 +673,7 @@
         } catch (err) {
           setGlobalError(err.message)
           btn.disabled = false
-          btn.innerHTML = analysis.type === 'spotify'
-            ? '<i class="fa-brands fa-spotify"></i> Import from Spotify'
-            : '<i class="fa-brands fa-deezer"></i> Import from Deezer'
+          btn.innerHTML = labels[analysis.type]
         }
       } else {
         const urls = analysis.urls

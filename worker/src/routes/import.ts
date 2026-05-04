@@ -5,6 +5,7 @@ import { getTrackCount } from '../lib/db'
 import { addTracks } from '../lib/track-actions'
 import { extractSpotifyPlaylistId, fetchSpotifyPlaylistTracks } from '../lib/spotify'
 import { resolveDeezerPlaylistId, fetchDeezerPlaylistTracks } from '../lib/deezer'
+import { extractYouTubePlaylistId, fetchYouTubePlaylistTracks } from '../lib/youtube'
 import { verifyToken } from '../lib/auth'
 
 export const importRoutes = new Hono<{ Bindings: Bindings }>()
@@ -62,5 +63,15 @@ importRoutes.post('/:id/import/deezer', async (c) => {
     (url) => resolveDeezerPlaylistId(url),
     (id) => fetchDeezerPlaylistTracks(id),
     'Deezer'
+  )
+})
+
+importRoutes.post('/:id/import/youtube', async (c) => {
+  if (!c.env.YOUTUBE_API_KEY) return c.json({ error: 'YouTube import not configured' }, 503)
+  return runImport(
+    c,
+    (url) => Promise.resolve(extractYouTubePlaylistId(url)),
+    (id) => fetchYouTubePlaylistTracks(id, c.env.YOUTUBE_API_KEY!),
+    'YouTube'
   )
 })
