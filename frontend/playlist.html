@@ -14,7 +14,8 @@
     body { font-family: system-ui, sans-serif; max-width: 680px; margin: 4rem auto; padding: 0 1.5rem; color: #111; }
 
     .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .nav a, .nav button { font-size: 0.85rem; color: #888; text-decoration: none; display: flex; align-items: center; gap: 0.35rem; background: none; border: none; cursor: pointer; padding: 0; font-family: inherit; }
+    .nav a, .nav button { font-size: 0.85rem; color: #888; text-decoration: none; display: flex; align-items: center; gap: 0.35rem; background: none; border: none; cursor: pointer; padding: 0; font-family: inherit; white-space: nowrap; }
+    .nav button:disabled { cursor: default; }
     .nav a:hover, .nav button:hover { color: #111; }
     .nav-right { display: flex; align-items: center; gap: 1rem; }
 
@@ -47,7 +48,7 @@
   <div class="nav">
     <a href="/"><i class="fa-solid fa-arrow-left"></i> Plevoid</a>
     <div class="nav-right">
-      <a id="export-link" href="#" hidden download><i class="fa-solid fa-download"></i> CSV</a>
+      <button id="export-btn" hidden><i class="fa-solid fa-download"></i> CSV</button>
       <button id="share-btn" hidden title="Share playlist"><i class="fa-solid fa-share-nodes"></i> Share</button>
       <a id="edit-link" href="#" hidden><i class="fa-solid fa-pen"></i> Edit</a>
     </div>
@@ -110,6 +111,35 @@
           setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-share-nodes"></i> Share' }, 2000)
         }
       } catch { /* user cancelled share sheet */ }
+    })
+
+    document.getElementById('export-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('export-btn')
+      btn.disabled = true
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> CSV'
+      try {
+        const res = await fetch(`/api/playlists/${id}/export.csv`)
+        if (!res.ok) throw new Error('Export failed')
+        const skipped = parseInt(res.headers.get('X-Skipped-Tracks') ?? '0', 10)
+        const blob = await res.blob()
+        const title = (loadedData?.title ?? 'playlist').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'playlist'
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = `${title}.csv`
+        a.click()
+        URL.revokeObjectURL(a.href)
+        if (skipped > 0) {
+          btn.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${skipped} track${skipped > 1 ? 's' : ''} not exported yet`
+          setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-download"></i> CSV'; btn.disabled = false }, 5000)
+          return
+        }
+      } catch {
+        btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Error'
+        setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-download"></i> CSV'; btn.disabled = false }, 3000)
+        return
+      }
+      btn.innerHTML = '<i class="fa-solid fa-download"></i> CSV'
+      btn.disabled = false
     })
 
     function safeUrl(url) {
@@ -201,9 +231,7 @@
         document.title = `${data.title} — Plevoid`
         document.getElementById('title').textContent = data.title
         document.getElementById('share-btn').hidden = false
-        const exportLink = document.getElementById('export-link')
-        exportLink.href = `/api/playlists/${id}/export.csv`
-        exportLink.hidden = false
+        document.getElementById('export-btn').hidden = false
 
         const container = document.getElementById('tracks')
         if (!data.tracks.length) {
