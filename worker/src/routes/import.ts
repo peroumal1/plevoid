@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import { PLAYLIST_LIMIT, type Bindings } from '../types'
+import { PLAYLIST_LIMIT, PLAYLIST_LIMIT_ERROR, type Bindings } from '../types'
 import { getTrackCount } from '../lib/db'
 import { addTracks } from '../lib/track-actions'
 import { extractSpotifyPlaylistId, fetchSpotifyPlaylistTracks } from '../lib/spotify'
@@ -26,7 +26,7 @@ async function runImport(
 
   const count = await getTrackCount(c.env.plevoid_db, check.playlist.id)
   const slots = PLAYLIST_LIMIT - count
-  if (slots <= 0) return c.json({ error: `playlist limit reached (${PLAYLIST_LIMIT} tracks maximum)` }, 400)
+  if (slots <= 0) return c.json({ error: PLAYLIST_LIMIT_ERROR }, 400)
 
   let urls: string[]
   try {

@@ -1,4 +1,5 @@
 export const PLAYLIST_LIMIT = 50
+export const PLAYLIST_LIMIT_ERROR = `playlist limit reached (${PLAYLIST_LIMIT} tracks maximum)`
 
 export type QueueMessage = {
   trackId: string
