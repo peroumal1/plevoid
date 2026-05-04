@@ -88,8 +88,10 @@ POST /api/playlists/:id/import/{spotify,deezer}
   → batch-insert tracks, enqueue each for Odesli resolution
 
 Queue consumer (max_batch_size=1, max_concurrency=1, 6s pre-call sleep)
-  → call Odesli API (~7s per message, ≤9 req/min; sleeps on 429 and retries in-place)
-  → UPDATE tracks SET odesli_data = ?   -- or {_notFound:true} on 404
+  → call Odesli API (~7s per message, ≤9 req/min)
+  → on 429: sleep Retry-After then retry once; if still 429 → msg.retry()
+  → on non-retryable 4xx: write {_notFound:true} and ack
+  → UPDATE tracks SET odesli_data = ?   -- or {_notFound:true} on 404/4xx
 
 Frontend polls GET /api/playlists/:id every 5s
   → updates track cards when odesli_data arrives or _preview clears
@@ -100,9 +102,9 @@ PATCH /api/playlists/:id/tracks/reorder   -- token-protected
 GET  /api/playlists/:id/export.csv        -- public
   → streams CSV with title, artist, url_original, url_odesli, added_at
 
-Cron (hourly):
+Cron (every 10 min):
   → delete playlists inactive for 90+ days
-  → re-enqueue tracks with odesli_data IS NULL older than 1 hour (lost queue messages)
+  → re-enqueue tracks with odesli_data IS NULL older than 10 minutes (lost queue messages)
 ```
 
 Each playlist has a public `id` (UUID v4) and a secret `edit_token` (UUID v4). The token is returned once at creation, stored in `localStorage` and the URL hash (`#token=...`), and is never returned by the public read endpoint.
