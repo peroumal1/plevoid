@@ -3,6 +3,7 @@ import type { Track } from './db'
 type OdesliEntity = { title?: string; artistName?: string }
 type OdesliBlob = {
   _notFound?: boolean
+  _preview?: boolean
   entityUniqueId?: string
   pageUrl?: string
   entitiesByUniqueId?: Record<string, OdesliEntity>
