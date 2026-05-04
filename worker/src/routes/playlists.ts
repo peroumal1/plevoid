@@ -40,13 +40,14 @@ playlistRoutes.get('/:id/export.csv', async (c) => {
   if (!playlist) return c.json({ error: 'not found' }, 404)
 
   const tracks = await getTracks(c.env.plevoid_db, playlist.id)
-  const csv = tracksToCSV(tracks)
+  const { csv, skipped } = tracksToCSV(tracks)
   const safeTitle = playlist.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'playlist'
 
   return new Response(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${safeTitle}.csv"`,
+      'X-Skipped-Tracks': String(skipped),
     },
   })
 })
