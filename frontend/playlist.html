@@ -34,6 +34,13 @@
     #error { color: #c00; }
     .empty { color: #999; font-size: 0.95rem; margin-top: 1rem; }
     .empty a { color: #555; }
+
+    #player-modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+    #player-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+    #player-container { position: relative; z-index: 1; border-radius: 12px; overflow: hidden; width: min(560px, 92vw); background: #000; }
+    #player-close { position: absolute; top: 8px; right: 10px; background: rgba(0,0,0,0.5); border: none; color: #fff; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 2; font-size: 0.85rem; }
+    #player-close:hover { background: rgba(0,0,0,0.8); }
+    #player-frame { width: 100%; height: 352px; border: none; display: block; }
   </style>
 </head>
 <body>
@@ -48,6 +55,15 @@
   <h1 id="title">Loading…</h1>
   <div id="tracks"></div>
   <div id="error" hidden></div>
+
+  <div id="player-modal" hidden>
+    <div id="player-backdrop"></div>
+    <div id="player-container">
+      <button id="player-close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+      <iframe id="player-frame" frameborder="0" allowfullscreen
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture; accelerometer; gyroscope; web-share"></iframe>
+    </div>
+  </div>
 
   <script>
     function getStoredPlaylists() {
@@ -130,6 +146,49 @@
       bandcamp: 'Bandcamp', tidal: 'Tidal', napster: 'Napster',
       anghami: 'Anghami', boomplay: 'Boomplay', pandora: 'Pandora',
       audius: 'Audius', yandex: 'Yandex Music',
+    }
+
+    // --- Player modal ---
+    const playerModal = document.getElementById('player-modal')
+    const playerFrame = document.getElementById('player-frame')
+    document.getElementById('player-close').addEventListener('click', closePlayer)
+    document.getElementById('player-backdrop').addEventListener('click', closePlayer)
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closePlayer() })
+
+    function openPlayer(embedUrl) {
+      playerFrame.src = embedUrl
+      playerModal.hidden = false
+    }
+    function closePlayer() {
+      playerModal.hidden = true
+      playerFrame.src = ''
+    }
+
+    function toEmbedUrl(platform, url) {
+      try {
+        const u = new URL(url)
+        if (platform === 'spotify') {
+          return `https://open.spotify.com/embed${u.pathname}`
+        }
+        if (platform === 'youtube' || platform === 'youtubeMusic') {
+          const v = u.searchParams.get('v') || u.pathname.replace(/^\//, '')
+          return `https://www.youtube.com/embed/${v}`
+        }
+        if (platform === 'appleMusic' || platform === 'itunes') {
+          return url.replace('music.apple.com', 'embed.music.apple.com')
+        }
+        if (platform === 'deezer') {
+          return `https://widget.deezer.com/widget/dark${u.pathname}`
+        }
+        if (platform === 'soundcloud') {
+          return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%23ff5500`
+        }
+        if (platform === 'tidal') {
+          const m = u.pathname.match(/\/(?:browse\/)?track\/(\d+)/)
+          if (m) return `https://embed.tidal.com/tracks/${m[1]}`
+        }
+      } catch {}
+      return null
     }
 
     async function load() {
@@ -215,6 +274,10 @@
           a.rel = 'noopener'
           a.title = label
           a.innerHTML = `<i class="${iconClass}"></i>`
+          const embedUrl = toEmbedUrl(platform, url)
+          if (embedUrl) {
+            a.addEventListener('click', e => { e.preventDefault(); openPlayer(embedUrl) })
+          }
           linksEl.appendChild(a)
         }
 
