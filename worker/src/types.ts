@@ -14,4 +14,5 @@ export type Bindings = {
   SPOTIFY_CLIENT_ID?: string
   SPOTIFY_CLIENT_SECRET?: string
   YOUTUBE_API_KEY?: string
+  ADMIN_TOKEN?: string
 }

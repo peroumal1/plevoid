@@ -5,6 +5,7 @@ import { playlistRoutes } from './routes/playlists'
 import { trackRoutes } from './routes/tracks'
 import { importRoutes } from './routes/import'
 import { searchRoutes } from './routes/search'
+import { adminRoutes } from './routes/admin'
 import { fetchOdesli } from './lib/odesli'
 import { updateTrackOdesli, deleteOldPlaylists, getPlaylist, getTrackCount } from './lib/db'
 import pkg from '../package.json'
@@ -17,6 +18,25 @@ app.route('/api/playlists', playlistRoutes)
 app.route('/api/playlists', trackRoutes)
 app.route('/api/playlists', importRoutes)
 app.route('/api/search', searchRoutes)
+app.route('/admin/api', adminRoutes)
+
+app.get('/admin', (c) => {
+  const header = c.req.header('Authorization') ?? ''
+  if (!c.env.ADMIN_TOKEN || !header.startsWith('Basic ')) {
+    return new Response('Unauthorized', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Basic realm="Plevoid Admin"' },
+    })
+  }
+  const password = atob(header.slice(6)).split(':').slice(1).join(':')
+  if (password !== c.env.ADMIN_TOKEN) {
+    return new Response('Unauthorized', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Basic realm="Plevoid Admin"' },
+    })
+  }
+  return c.env.ASSETS.fetch(new Request(new URL('/admin.html', c.req.url).toString()))
+})
 
 app.get('/p/:id', async (c) => {
   const id = c.req.param('id')

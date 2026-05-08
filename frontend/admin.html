@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plevoid Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; color: #111; }
+    h1 { font-size: 1.3rem; margin: 0 0 2rem; }
+    h2 { font-size: 0.72rem; color: #999; margin: 0 0 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 2.5rem; }
+    .stat-card { background: #f7f7f7; border: 1px solid #e8e8e8; border-radius: 8px; padding: 1rem 1.25rem; }
+    .stat-label { font-size: 0.72rem; color: #999; margin-bottom: 0.3rem; }
+    .stat-value { font-size: 1.7rem; font-weight: 700; line-height: 1; }
+    .stat-sub { font-size: 0.72rem; color: #aaa; margin-top: 0.25rem; }
+
+    .section { margin-top: 2.5rem; border-top: 1px solid #eee; padding-top: 1.5rem; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; padding: 0.45rem 0.75rem; border-bottom: 2px solid #eee; color: #aaa; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; cursor: pointer; user-select: none; }
+    th:hover { color: #555; }
+    th.sort-active { color: #111; }
+    td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    .btn { padding: 0.28rem 0.6rem; font-size: 0.78rem; border-radius: 5px; border: 1px solid #ddd; cursor: pointer; background: #fff; color: #333; transition: all 0.15s; }
+    .btn:hover { background: #f5f5f5; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-danger { border-color: #f5c2c7; color: #c00; }
+    .btn-danger:hover { background: #fdecea; }
+    .btn-primary { background: #111; color: #fff; border-color: #111; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.8; }
+
+    .badge { display: inline-block; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.72rem; font-weight: 500; }
+    .badge-failed { background: #fdecea; color: #c00; }
+    .badge-pending { background: #fff8e1; color: #b45309; }
+
+    .pagination { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.75rem; }
+    .pagination .btn { padding: 0.28rem 0.55rem; }
+    .page-info { margin-left: auto; font-size: 0.78rem; color: #aaa; }
+
+    .empty { color: #bbb; font-size: 0.875rem; padding: 2rem 0; text-align: center; }
+    a.row-link { color: #111; text-decoration: none; }
+    a.row-link:hover { text-decoration: underline; }
+    .mono { font-family: monospace; font-size: 0.8rem; color: #666; }
+  </style>
+</head>
+<body>
+  <h1><i class="fa-solid fa-lock" style="font-size:0.85em;opacity:0.35;margin-right:0.5rem"></i>Plevoid Admin</h1>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total playlists</div><div class="stat-value" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Last 7 days</div><div class="stat-value" id="s-7d">—</div></div>
+    <div class="stat-card"><div class="stat-label">Last 30 days</div><div class="stat-value" id="s-30d">—</div></div>
+    <div class="stat-card"><div class="stat-label">Total tracks</div><div class="stat-value" id="s-tracks">—</div></div>
+    <div class="stat-card">
+      <div class="stat-label">Enriched</div>
+      <div class="stat-value" id="s-enriched">—</div>
+      <div class="stat-sub" id="s-enrichment-sub"></div>
+    </div>
+    <div class="stat-card"><div class="stat-label">Expiring (7d)</div><div class="stat-value" id="s-expiring">—</div></div>
+  </div>
+
+  <div class="section">
+    <h2>Playlists</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="title">Title</th>
+            <th data-sort="created_at" class="sort-active">Created <span id="sort-arrow">↓</span></th>
+            <th data-sort="last_accessed_at">Last accessed</th>
+            <th data-sort="track_count">Tracks</th>
+            <th data-sort="expires_at">Expires</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="playlists-body">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <div class="section">
+    <h2>Enrichment Issues</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Track ID</th>
+            <th>Playlist</th>
+            <th>URL</th>
+            <th>Added</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="enrichment-body">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function fmt(ts) {
+      if (!ts) return '—'
+      return new Date(ts * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    }
+
+    // Stats
+    async function loadStats() {
+      try {
+        const d = await fetch('/admin/api/stats').then(r => r.json())
+        document.getElementById('s-total').textContent = d.total_playlists
+        document.getElementById('s-7d').textContent = d.playlists_7d
+        document.getElementById('s-30d').textContent = d.playlists_30d
+        document.getElementById('s-tracks').textContent = d.total_tracks
+        document.getElementById('s-enriched').textContent = d.enrichment.enriched
+        document.getElementById('s-enrichment-sub').textContent =
+          `${d.enrichment.pending} pending · ${d.enrichment.failed} failed`
+        document.getElementById('s-expiring').textContent = d.expiring_soon
+      } catch (e) {
+        console.error('stats error', e)
+      }
+    }
+
+    // Playlists
+    const pl = { page: 1, sort: 'created_at', order: 'desc', total: 0 }
+
+    async function loadPlaylists() {
+      const res = await fetch(`/admin/api/playlists?page=${pl.page}&sort=${pl.sort}&order=${pl.order}`)
+      const d = await res.json()
+      pl.total = d.total
+
+      const tbody = document.getElementById('playlists-body')
+      if (!d.playlists.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No playlists</td></tr>'
+      } else {
+        tbody.innerHTML = d.playlists.map(p => `
+          <tr>
+            <td><a class="row-link" href="/p/${p.id}" target="_blank" rel="noopener">${esc(p.title)}</a></td>
+            <td>${fmt(p.created_at)}</td>
+            <td>${fmt(p.last_accessed_at)}</td>
+            <td>${p.track_count}</td>
+            <td>${fmt(p.expires_at)}</td>
+            <td>
+              <button class="btn btn-danger" title="Delete" onclick="deletePlaylist('${p.id}', this)">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('')
+      }
+      renderPagination()
+    }
+
+    function renderPagination() {
+      const totalPages = Math.ceil(pl.total / 20) || 1
+      document.getElementById('pagination').innerHTML = `
+        <button class="btn" onclick="changePage(-1)" ${pl.page <= 1 ? 'disabled' : ''}>
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button class="btn" onclick="changePage(1)" ${pl.page >= totalPages ? 'disabled' : ''}>
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+        <span class="page-info">Page ${pl.page} of ${totalPages} · ${pl.total} total</span>
+      `
+    }
+
+    function changePage(delta) {
+      pl.page = Math.max(1, pl.page + delta)
+      loadPlaylists()
+    }
+
+    document.querySelector('table thead').addEventListener('click', e => {
+      const th = e.target.closest('th[data-sort]')
+      if (!th) return
+      const sort = th.dataset.sort
+      if (pl.sort === sort) {
+        pl.order = pl.order === 'desc' ? 'asc' : 'desc'
+      } else {
+        pl.sort = sort
+        pl.order = 'desc'
+      }
+      pl.page = 1
+      document.querySelectorAll('th[data-sort]').forEach(t => t.classList.remove('sort-active'))
+      th.classList.add('sort-active')
+      document.getElementById('sort-arrow').textContent = pl.order === 'desc' ? '↓' : '↑'
+      th.appendChild(document.getElementById('sort-arrow'))
+      loadPlaylists()
+    })
+
+    async function deletePlaylist(id, btn) {
+      if (!confirm(`Delete playlist "${id}"? This cannot be undone.`)) return
+      btn.disabled = true
+      const res = await fetch(`/admin/api/playlists/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        loadPlaylists()
+        loadStats()
+      } else {
+        alert('Delete failed')
+        btn.disabled = false
+      }
+    }
+
+    // Enrichment issues
+    async function loadEnrichment() {
+      const d = await fetch('/admin/api/enrichment/issues').then(r => r.json())
+      const tbody = document.getElementById('enrichment-body')
+      if (!d.tracks.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No issues</td></tr>'
+        return
+      }
+      tbody.innerHTML = d.tracks.map(t => `
+        <tr>
+          <td class="mono">${t.id.slice(0, 8)}…</td>
+          <td><a class="row-link mono" href="/p/${t.playlist_id}" target="_blank" rel="noopener">${t.playlist_id}</a></td>
+          <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.url_original)}">${esc(t.url_original)}</td>
+          <td>${fmt(t.added_at)}</td>
+          <td><span class="badge badge-${t.status}">${t.status}</span></td>
+          <td>
+            <button class="btn btn-primary" onclick="retryTrack('${t.id}', this)">
+              <i class="fa-solid fa-rotate-right"></i> Retry
+            </button>
+          </td>
+        </tr>
+      `).join('')
+    }
+
+    async function retryTrack(id, btn) {
+      btn.disabled = true
+      const res = await fetch(`/admin/api/enrichment/retry/${id}`, { method: 'POST' })
+      if (res.ok) {
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Queued'
+        setTimeout(loadEnrichment, 3000)
+      } else {
+        alert('Retry failed')
+        btn.disabled = false
+      }
+    }
+
+    loadStats()
+    loadPlaylists()
+    loadEnrichment()
+  </script>
+</body>
+</html>
