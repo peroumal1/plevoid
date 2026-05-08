@@ -17,6 +17,7 @@ Paste any Spotify, Apple Music, YouTube, or Deezer URL — Plevoid resolves it v
 - CSV export with per-platform URLs (Spotify, Apple Music, YouTube, Deezer, song.link) — compatible with Soundiiz and TuneMyMusic
 - Open Graph meta tags on playlist pages for rich link previews on Bluesky, iMessage, Slack, Discord, etc.
 - 50-track limit per playlist; playlists deleted after 90 days of inactivity
+- Admin interface at `/admin` — stats, playlist management, enrichment monitor
 
 ## Stack
 
@@ -64,6 +65,9 @@ npx wrangler secret put YOUTUBE_API_KEY
 
 # optional — song.link stopped issuing new API keys; anonymous mode works at 10 req/min
 npx wrangler secret put ODESLI_API_KEY
+
+# required for admin interface — leave username blank, use token as password
+npx wrangler secret put ADMIN_TOKEN
 ```
 
 Every push to `main` deploys automatically via GitHub Actions. The workflow runs `typecheck` and `npm test` before deploying.
@@ -103,6 +107,13 @@ Frontend polls GET /api/playlists/:id every 5s
 
 PATCH /api/playlists/:id/tracks/reorder   -- token-protected
   → batch-updates position column
+
+GET  /admin                               -- admin UI (Basic Auth + Cloudflare Access)
+GET  /admin/api/stats                    -- playlist + track + enrichment counts
+GET  /admin/api/playlists                -- paginated playlist list
+DELETE /admin/api/playlists/:id          -- delete playlist and its tracks
+GET  /admin/api/enrichment/issues        -- pending/failed tracks older than 1h
+POST /admin/api/enrichment/retry/:id     -- reset odesli_data and re-enqueue
 
 GET  /api/playlists/:id/export.csv        -- public
   → CSV with Title, Artist, Spotify URL, Apple Music URL, YouTube URL, Deezer URL, song.link, Added
