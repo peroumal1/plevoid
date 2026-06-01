@@ -4,6 +4,80 @@ All notable changes to this project will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.24] — 2026-06-01
+
+### Added
+- add admin interface with Basic Auth
+- show GitHub link next to version on all pages
+- add GitHub link to footer
+- YouTube playlist import
+- inject OG meta tags server-side for playlist pages
+- open platform links in iframe modal instead of new tab
+- require valid edit token on /api/search
+- keep edit token in URL and surface save reminder
+- use search metadata as preview stub while Odesli resolves
+- Deezer import, unified import panel, sync Odesli with queue fallback
+- import public Spotify playlists via Client Credentials
+- expose /api/version and display version in footer on all pages
+- track reorder buttons and bulk URL import
+- CSV export, track reordering, and Vitest tests
+- edit URL button for unresolved tracks
+- add Powered by Songlink attribution
+- 50-track limit, 90-day inactivity retention, IP-based search localisation
+- song search via iTunes API, localised by browser country
+- replace PNG logo with SVG, add SVG favicon
+- add logo to home page
+- add favicon and apple-touch-icon
+- async Odesli resolution via Cloudflare Queues, frontend polling
+- share playlist via Web Share API with formatted tracklist + URL
+- Font Awesome icons, brand platform icons, polished UI
+- optional ODESLI_API_KEY to bypass anonymous rate limits
+- rename playlist, optimistic track adding
+- localStorage playlist recovery, tracking param stripping, public view link from edit
+
+### Fixed
+- add _preview to OdesliBlob type
+- skip unresolved tracks from CSV export, add platform URL columns, warn on skipped tracks
+- add short link domains for Spotify, Apple Music, Deezer, Tidal, SoundCloud
+- reject playlist/artist URLs on single-track add with actionable error
+- speed up stuck-track recovery — cron every 10 min, threshold 10 min
+- write _notFound on non-retryable 4xx; improve import trigger visibility
+- correct Odesli 429 handling in queue consumer + tests
+- exclude integration tests from unit test runner
+- process queue messages one at a time with 6s pre-call delay
+- put version on its own line below footer text
+- add more spacing and separator line above edit page footer
+- move CHANGELOG script to separate file to avoid YAML heredoc conflict
+- exclude test files from Workers tsconfig to avoid tinybench/EventTarget conflict
+- handle Odesli not-found — stop spinner, show URL fallback, retry on transient errors
+- softer Songlink attribution wording
+- use request.cf.country for geolocation in search
+- use CF-IPCountry header for search localisation
+- use SUN instead of 0 in cron trigger for Cloudflare compatibility
+- move edit token from query string to URL hash
+- rate limit Odesli calls in consumer (6s gap), drop max_batch_timeout to 5s
+- platform icons — add youtubeMusic/itunes, skip platforms without FA icons
+
+### Changed
+- ci: retrigger deploy after history rewrite
+- docs: document admin interface and ADMIN_TOKEN secret
+- docs: update README for YouTube import, OG tags, iframe player, CSV improvements
+- refactor: extract PLAYLIST_LIMIT_ERROR constant, parallelize CSV export queries, minor cleanups
+- ux: update search placeholder to clarify track or album URL
+- refactor: extract PLAYLIST_LIMIT constant, dedupe import route handlers
+- docs: update architecture notes — cron every 10 min, queue 429/4xx handling
+- ux: move import trigger below search bar
+- docs: update queue consumer and cron docs to reflect recent fixes
+- test: add integration tests for happy paths (Workers pool + D1)
+- docs+tests: add unit tests for auth/deezer/spotify/validate, update README
+- refactor: extract verifyToken, batch imports, merge Spotify into search
+- ci: auto-bump patch version on every deploy, keep manual release for minor/major
+- ci: split release workflow into test + release jobs
+- ci: add release workflow with version bump, CHANGELOG update, and tagging
+- docs: add README; fix D1 binding name to match wrangler.toml
+- ci: GitHub Actions deploy workflow with typecheck gate
+- init: working MVP — Hono worker, D1, Odesli, vanilla frontend
+
 ## [0.2.23] — 2026-05-05
 
 ### Added
