@@ -1,5 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { extractSpotifyPlaylistId, fetchSpotifyPlaylistTracks, searchSpotify } from './spotify'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { extractSpotifyPlaylistId, fetchSpotifyEmbedTracks } from './spotify'
+
+const makeEmbedHtml = (trackList: Array<{ uri: string }>) => {
+  const data = { props: { pageProps: { state: { data: { entity: { trackList } } } } } }
+  return `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(data)}</script>`
+}
 
 describe('extractSpotifyPlaylistId', () => {
   it('extracts ID from open.spotify.com', () => {
@@ -20,148 +25,37 @@ describe('extractSpotifyPlaylistId', () => {
   })
 })
 
-// fetchSpotifyPlaylistTracks and searchSpotify share a module-level token cache.
-// We advance system time 2h per test so any token cached by the previous test appears
-// expired (tokens last ~59 min, 2h > 59 min).
-const BASE_TIME = Date.now()
-let fakeTimeOffset = 0
+describe('fetchSpotifyEmbedTracks', () => {
+  afterEach(() => { vi.restoreAllMocks() })
 
-function advanceFakeTime() {
-  fakeTimeOffset += 2 * 60 * 60 * 1000
-  vi.useFakeTimers()
-  vi.setSystemTime(BASE_TIME + fakeTimeOffset)
-}
-
-describe('fetchSpotifyPlaylistTracks', () => {
-  beforeEach(advanceFakeTime)
-  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
-
-  it('returns track URLs from a playlist', async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ access_token: 'tok', expires_in: 3600 }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          total: 2,
-          items: [
-            { track: { external_urls: { spotify: 'https://open.spotify.com/track/aaa' } } },
-            { track: { external_urls: { spotify: 'https://open.spotify.com/track/bbb' } } },
-          ],
-        }),
-      })
-    )
-    const result = await fetchSpotifyPlaylistTracks('cid', 'csecret', 'playlist-id')
+  it('returns track URLs parsed from embed __NEXT_DATA__', async () => {
+    const html = makeEmbedHtml([
+      { uri: 'spotify:track:aaa' },
+      { uri: 'spotify:track:bbb' },
+    ])
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({ ok: true, status: 200, text: async () => html }))
+    const result = await fetchSpotifyEmbedTracks('playlist-id')
     expect(result.urls).toEqual([
       'https://open.spotify.com/track/aaa',
       'https://open.spotify.com/track/bbb',
     ])
-    expect(result.total).toBe(2)
   })
 
-  it('filters out null tracks (local tracks, unplayable items)', async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ access_token: 'tok', expires_in: 3600 }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          total: 2,
-          items: [
-            { track: null },
-            { track: { external_urls: { spotify: 'https://open.spotify.com/track/aaa' } } },
-          ],
-        }),
-      })
-    )
-    const result = await fetchSpotifyPlaylistTracks('cid', 'csecret', 'playlist-id')
-    expect(result.urls).toEqual(['https://open.spotify.com/track/aaa'])
+  it('throws on 404', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({ ok: false, status: 404 }))
+    await expect(fetchSpotifyEmbedTracks('private-playlist'))
+      .rejects.toThrow('Spotify playlist not found or private')
   })
 
-  it('throws when Spotify auth fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({ ok: false, status: 401 }))
-    await expect(fetchSpotifyPlaylistTracks('bad-id', 'bad-secret', 'playlist-id'))
-      .rejects.toThrow('Spotify auth failed')
+  it('throws on other non-ok responses', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({ ok: false, status: 503 }))
+    await expect(fetchSpotifyEmbedTracks('playlist-id'))
+      .rejects.toThrow('Spotify embed error (503)')
   })
 
-  it('throws a descriptive error on 404 (private or editorial playlist)', async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ access_token: 'tok', expires_in: 3600 }),
-      })
-      .mockResolvedValueOnce({ ok: false, status: 404 })
-    )
-    await expect(fetchSpotifyPlaylistTracks('cid', 'csecret', 'private-playlist'))
-      .rejects.toThrow('Spotify playlist not found')
-  })
-
-  it('throws on other Spotify API errors', async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ access_token: 'tok', expires_in: 3600 }),
-      })
-      .mockResolvedValueOnce({ ok: false, status: 500 })
-    )
-    await expect(fetchSpotifyPlaylistTracks('cid', 'csecret', 'playlist-id'))
-      .rejects.toThrow('Spotify API error (500)')
-  })
-})
-
-describe('searchSpotify', () => {
-  beforeEach(advanceFakeTime)
-  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
-
-  it('returns formatted results using the smallest album image', async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ access_token: 'tok', expires_in: 3600 }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          tracks: {
-            items: [{
-              name: 'Test Song',
-              artists: [{ name: 'Test Artist' }],
-              album: {
-                images: [
-                  { url: 'https://i.scdn.co/image/large.jpg' },
-                  { url: 'https://i.scdn.co/image/small.jpg' },
-                ],
-              },
-              external_urls: { spotify: 'https://open.spotify.com/track/xyz' },
-            }],
-          },
-        }),
-      })
-    )
-    const results = await searchSpotify('cid', 'csecret', 'test song')
-    expect(results).toEqual([{
-      title: 'Test Song',
-      artist: 'Test Artist',
-      artwork: 'https://i.scdn.co/image/small.jpg',
-      url: 'https://open.spotify.com/track/xyz',
-    }])
-  })
-
-  it('returns empty array when search API returns an error', async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ access_token: 'tok', expires_in: 3600 }),
-      })
-      .mockResolvedValueOnce({ ok: false, status: 503 })
-    )
-    const results = await searchSpotify('cid', 'csecret', 'test')
-    expect(results).toEqual([])
+  it('throws when __NEXT_DATA__ is missing from the page', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({ ok: true, status: 200, text: async () => '<html>no data</html>' }))
+    await expect(fetchSpotifyEmbedTracks('playlist-id'))
+      .rejects.toThrow('Could not parse Spotify embed page')
   })
 })

@@ -3,7 +3,7 @@ import type { Context } from 'hono'
 import { PLAYLIST_LIMIT, PLAYLIST_LIMIT_ERROR, type Bindings } from '../types'
 import { getTrackCount } from '../lib/db'
 import { addTracks } from '../lib/track-actions'
-import { extractSpotifyPlaylistId, fetchSpotifyPlaylistTracks } from '../lib/spotify'
+import { extractSpotifyPlaylistId, fetchSpotifyEmbedTracks } from '../lib/spotify'
 import { resolveDeezerPlaylistId, fetchDeezerPlaylistTracks } from '../lib/deezer'
 import { extractYouTubePlaylistId, fetchYouTubePlaylistTracks } from '../lib/youtube'
 import { verifyToken } from '../lib/auth'
@@ -46,13 +46,10 @@ async function runImport(
 }
 
 importRoutes.post('/:id/import/spotify', async (c) => {
-  if (!c.env.SPOTIFY_CLIENT_ID || !c.env.SPOTIFY_CLIENT_SECRET) {
-    return c.json({ error: 'Spotify import not configured' }, 503)
-  }
   return runImport(
     c,
     (url) => Promise.resolve(extractSpotifyPlaylistId(url)),
-    (id) => fetchSpotifyPlaylistTracks(c.env.SPOTIFY_CLIENT_ID!, c.env.SPOTIFY_CLIENT_SECRET!, id),
+    (id) => fetchSpotifyEmbedTracks(id),
     'Spotify'
   )
 })

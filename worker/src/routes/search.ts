@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import type { Bindings } from '../types'
-import { searchSpotify } from '../lib/spotify'
 import { verifyAnyToken } from '../lib/auth'
 
 export const searchRoutes = new Hono<{ Bindings: Bindings }>()
@@ -38,16 +37,6 @@ function dedupeResults(results: SearchResult[]): SearchResult[] {
   })
 }
 
-function interleave<T>(a: T[], b: T[]): T[] {
-  const out: T[] = []
-  const len = Math.max(a.length, b.length)
-  for (let i = 0; i < len; i++) {
-    if (i < a.length) out.push(a[i])
-    if (i < b.length) out.push(b[i])
-  }
-  return out
-}
-
 searchRoutes.get('/', async (c) => {
   if (!await verifyAnyToken(c.env.plevoid_db, c.req.header('X-Edit-Token'))) {
     return c.json({ error: 'unauthorized' }, 401)
@@ -59,13 +48,8 @@ searchRoutes.get('/', async (c) => {
   const cf = c.req.raw.cf as { country?: string } | undefined
   const country = (cf?.country ?? 'us').toLowerCase()
 
-  const [itunesResults, spotifyResults] = await Promise.all([
-    searchItunes(q, country),
-    c.env.SPOTIFY_CLIENT_ID && c.env.SPOTIFY_CLIENT_SECRET
-      ? searchSpotify(c.env.SPOTIFY_CLIENT_ID, c.env.SPOTIFY_CLIENT_SECRET, q).catch(() => [])
-      : Promise.resolve([]),
-  ])
+  const itunesResults = await searchItunes(q, country)
 
-  const merged = dedupeResults(interleave(itunesResults, spotifyResults)).slice(0, 8)
+  const merged = dedupeResults(itunesResults).slice(0, 8)
   return c.json({ results: merged })
 })

@@ -9,88 +9,29 @@ export function extractSpotifyPlaylistId(url: string): string | null {
   }
 }
 
-let tokenCache: { value: string; expiresAt: number } | null = null
-
-async function getAccessToken(clientId: string, clientSecret: string): Promise<string> {
-  if (tokenCache && Date.now() < tokenCache.expiresAt) return tokenCache.value
-  const res = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials',
-  })
-  if (!res.ok) throw new Error(`Spotify auth failed (${res.status})`)
-  const data = await res.json() as { access_token: string; expires_in: number }
-  tokenCache = { value: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 }
-  return tokenCache.value
+type EmbedData = {
+  props: { pageProps: { state: { data: { entity: { trackList: Array<{ uri: string }> } } } } }
 }
 
-type SpotifyTracksResponse = {
-  total: number
-  items: Array<{ track: { external_urls: { spotify: string } } | null }>
+export async function fetchSpotifyEmbedTracks(playlistId: string): Promise<{ urls: string[] }> {
+  const res = await fetch(`https://open.spotify.com/embed/playlist/${playlistId}`)
+  if (res.status === 404) throw new Error('Spotify playlist not found or private')
+  if (!res.ok) throw new Error(`Spotify embed error (${res.status})`)
+
+  const html = await res.text()
+  const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
+  if (!match) throw new Error('Could not parse Spotify embed page')
+
+  const data = JSON.parse(match[1]) as EmbedData
+  const trackList = data.props.pageProps.state.data.entity.trackList
+
+  const urls = trackList
+    .map(t => {
+      const id = t.uri.split(':')[2]
+      return id ? `https://open.spotify.com/track/${id}` : null
+    })
+    .filter((url): url is string => url !== null)
+
+  return { urls }
 }
 
-export async function fetchSpotifyPlaylistTracks(
-  clientId: string,
-  clientSecret: string,
-  playlistId: string
-): Promise<{ urls: string[]; total: number }> {
-  const token = await getAccessToken(clientId, clientSecret)
-
-  // One page (100) is enough to fill any remaining slots — Plevoid caps at 50 tracks
-  const qs = new URLSearchParams({
-    limit: '100',
-    offset: '0',
-    fields: 'total,items(track(external_urls(spotify)))',
-  })
-  const res = await fetch(
-    `https://api.spotify.com/v1/playlists/${playlistId}/tracks?${qs}`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
-  if (res.status === 404) throw new Error('Spotify playlist not found, private, or is a Spotify editorial playlist')
-  if (!res.ok) throw new Error(`Spotify API error (${res.status})`)
-
-  const data = await res.json() as SpotifyTracksResponse
-  const urls = data.items
-    .map(item => item.track?.external_urls?.spotify)
-    .filter((url): url is string => Boolean(url))
-
-  return { urls, total: data.total }
-}
-
-type SpotifySearchItem = {
-  name: string
-  artists: Array<{ name: string }>
-  album: { images: Array<{ url: string }> }
-  external_urls: { spotify: string }
-}
-
-export type SpotifySearchResult = {
-  title: string
-  artist: string
-  artwork: string
-  url: string
-}
-
-export async function searchSpotify(
-  clientId: string,
-  clientSecret: string,
-  query: string
-): Promise<SpotifySearchResult[]> {
-  const token = await getAccessToken(clientId, clientSecret)
-  const qs = new URLSearchParams({ q: query, type: 'track', limit: '5' })
-  const res = await fetch(`https://api.spotify.com/v1/search?${qs}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) return []
-  const data = await res.json() as { tracks: { items: SpotifySearchItem[] } }
-  return data.tracks.items.map(item => ({
-    title: item.name,
-    artist: item.artists[0]?.name ?? '',
-    // images are ordered largest→smallest; use last for smallest footprint
-    artwork: item.album.images.at(-1)?.url ?? '',
-    url: item.external_urls.spotify,
-  }))
-}
