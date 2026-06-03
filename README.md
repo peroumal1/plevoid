@@ -7,7 +7,7 @@ Paste any Spotify, Apple Music, YouTube, or Deezer URL — Plevoid resolves it v
 ## Features
 
 - Create and share playlists with a public link; edit via a secret token stored in `localStorage` and the URL hash
-- Song search autocomplete (iTunes + Spotify, interleaved and deduped)
+- Song search autocomplete (iTunes)
 - Import public playlists from Spotify, Deezer (including link.deezer.com short links), or YouTube
 - Bulk URL import — paste multiple track URLs at once
 - Odesli enrichment: artwork, title, artist, and cross-platform links resolved asynchronously
@@ -55,10 +55,6 @@ npx wrangler login
 npx wrangler d1 create plevoid-db          # paste the database_id into wrangler.toml
 npx wrangler queues create plevoid-odesli-queue
 npx wrangler d1 execute plevoid-db --remote --file=schema.sql
-
-# required for Spotify import and search
-npx wrangler secret put SPOTIFY_CLIENT_ID
-npx wrangler secret put SPOTIFY_CLIENT_SECRET
 
 # required for YouTube playlist import
 npx wrangler secret put YOUTUBE_API_KEY
