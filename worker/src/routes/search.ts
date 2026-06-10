@@ -49,7 +49,5 @@ searchRoutes.get('/', async (c) => {
   const country = (cf?.country ?? 'us').toLowerCase()
 
   const itunesResults = await searchItunes(q, country)
-
-  const merged = dedupeResults(itunesResults).slice(0, 8)
-  return c.json({ results: merged })
+  return c.json({ results: dedupeResults(itunesResults) })
 })

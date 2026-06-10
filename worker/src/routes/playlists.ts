@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { Bindings } from '../types'
+import { TITLE_MAX_LENGTH, TITLE_LENGTH_ERROR, type Bindings } from '../types'
 import { createPlaylist, getPlaylist, getTracks, updatePlaylistTitle, updateLastAccessed } from '../lib/db'
 import { tracksToCSV } from '../lib/export'
 import { verifyToken } from '../lib/auth'
@@ -16,6 +16,7 @@ playlistRoutes.post('/', async (c) => {
 
   const title = body.title?.trim()
   if (!title) return c.json({ error: 'title required' }, 400)
+  if (title.length > TITLE_MAX_LENGTH) return c.json({ error: TITLE_LENGTH_ERROR }, 400)
 
   const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
   const edit_token = crypto.randomUUID()
@@ -79,6 +80,7 @@ playlistRoutes.patch('/:id', async (c) => {
 
   const title = body.title?.trim()
   if (!title) return c.json({ error: 'title required' }, 400)
+  if (title.length > TITLE_MAX_LENGTH) return c.json({ error: TITLE_LENGTH_ERROR }, 400)
 
   await updatePlaylistTitle(c.env.plevoid_db, check.playlist.id, title)
   return c.json({ id: check.playlist.id, title })

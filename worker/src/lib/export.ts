@@ -12,7 +12,9 @@ type OdesliBlob = {
 
 function csvEscape(val: string | null | undefined): string {
   if (val == null) return ''
-  const s = String(val)
+  let s = String(val)
+  // Prevent formula injection when the CSV is opened in Excel/Sheets
+  if (/^[=+@\t\r-]/.test(s)) s = `'${s}`
   if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
     return `"${s.replace(/"/g, '""')}"`
   }

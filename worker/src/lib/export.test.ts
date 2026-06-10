@@ -137,4 +137,10 @@ describe('tracksToCSV', () => {
     const [, row] = csv.split('\n')
     expect(row.startsWith('"')).toBe(false)
   })
+
+  it('neutralises formula-injection prefixes', () => {
+    const { csv } = tracksToCSV([track({ odesli: odesli('=cmd|calc', '+SUM(A1)') })])
+    const [, row] = csv.split('\n')
+    expect(row.startsWith("'=cmd|calc,'+SUM(A1),")).toBe(true)
+  })
 })

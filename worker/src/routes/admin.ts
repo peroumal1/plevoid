@@ -1,26 +1,31 @@
 import { Hono } from 'hono'
-import type { Bindings } from '../types'
+import { RETENTION_SECONDS, type Bindings } from '../types'
 
 export const adminRoutes = new Hono<{ Bindings: Bindings }>()
 
-function unauthorized() {
+export function adminUnauthorized() {
   return new Response('Unauthorized', {
     status: 401,
     headers: { 'WWW-Authenticate': 'Basic realm="Plevoid Admin"' },
   })
 }
 
-function checkAuth(c: { env: Bindings; req: { header: (k: string) => string | undefined } }): boolean {
+export function checkAdminAuth(c: { env: Bindings; req: { header: (k: string) => string | undefined } }): boolean {
   if (!c.env.ADMIN_TOKEN) return false
   const header = c.req.header('Authorization') ?? ''
   if (!header.startsWith('Basic ')) return false
-  const decoded = atob(header.slice(6))
+  let decoded: string
+  try {
+    decoded = atob(header.slice(6))
+  } catch {
+    return false
+  }
   const password = decoded.slice(decoded.indexOf(':') + 1)
   return password === c.env.ADMIN_TOKEN
 }
 
 adminRoutes.use('*', async (c, next) => {
-  if (!checkAuth(c)) return unauthorized()
+  if (!checkAdminAuth(c)) return adminUnauthorized()
   await next()
 })
 
@@ -29,7 +34,7 @@ const PAGE_SIZE = 20
 const SORT_COLS: Record<string, string> = {
   created_at: 'p.created_at',
   last_accessed_at: 'p.last_accessed_at',
-  expires_at: 'COALESCE(p.last_accessed_at, p.created_at) + 7776000',
+  expires_at: `COALESCE(p.last_accessed_at, p.created_at) + ${RETENTION_SECONDS}`,
   track_count: 'track_count',
 }
 
@@ -45,7 +50,7 @@ adminRoutes.get('/stats', async (c) => {
     db.prepare("SELECT COUNT(*) as count FROM tracks WHERE odesli_data IS NOT NULL AND json_extract(odesli_data, '$._notFound') IS NULL AND json_extract(odesli_data, '$._preview') IS NULL"),
     db.prepare("SELECT COUNT(*) as count FROM tracks WHERE odesli_data IS NULL OR json_extract(odesli_data, '$._preview') = 1"),
     db.prepare("SELECT COUNT(*) as count FROM tracks WHERE json_extract(odesli_data, '$._notFound') = 1"),
-    db.prepare('SELECT COUNT(*) as count FROM playlists WHERE (COALESCE(last_accessed_at, created_at) + 7776000) BETWEEN ? AND ?').bind(now, now + 7 * 86400),
+    db.prepare(`SELECT COUNT(*) as count FROM playlists WHERE (COALESCE(last_accessed_at, created_at) + ${RETENTION_SECONDS}) BETWEEN ? AND ?`).bind(now, now + 7 * 86400),
   ])
 
   return c.json({
@@ -75,7 +80,7 @@ adminRoutes.get('/playlists', async (c) => {
     db.prepare(`
       SELECT p.id, p.title, p.created_at, p.last_accessed_at,
         COUNT(t.id) as track_count,
-        (COALESCE(p.last_accessed_at, p.created_at) + 7776000) as expires_at
+        (COALESCE(p.last_accessed_at, p.created_at) + ${RETENTION_SECONDS}) as expires_at
       FROM playlists p
       LEFT JOIN tracks t ON t.playlist_id = p.id
       GROUP BY p.id
@@ -110,7 +115,7 @@ adminRoutes.get('/enrichment/issues', async (c) => {
           ELSE 'pending'
         END as status
       FROM tracks t
-      WHERE (t.odesli_data IS NULL AND t.added_at < ?)
+      WHERE ((t.odesli_data IS NULL OR json_extract(t.odesli_data, '$._preview') = 1) AND t.added_at < ?)
          OR json_extract(t.odesli_data, '$._notFound') = 1
       ORDER BY t.added_at DESC
     `)

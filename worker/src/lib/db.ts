@@ -78,19 +78,34 @@ export async function getTracks(db: D1Database, playlist_id: string): Promise<Tr
   return results
 }
 
+/**
+ * Inserts a track unless the playlist already holds `limit` tracks.
+ * The count check happens inside the INSERT, so concurrent adds cannot exceed the limit.
+ * Returns false when the limit was hit (no row inserted).
+ */
 export async function insertTrack(
   db: D1Database,
   id: string,
   playlist_id: string,
   url_original: string,
-  odesli_data: string | null
-): Promise<void> {
-  await db
+  odesli_data: string | null,
+  limit: number
+): Promise<boolean> {
+  const result = await db
     .prepare(
-      'INSERT INTO tracks (id, playlist_id, url_original, odesli_data, added_at, position) VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE playlist_id = ?))'
+      'INSERT INTO tracks (id, playlist_id, url_original, odesli_data, added_at, position) SELECT ?, ?, ?, ?, ?, COALESCE(MAX(position), 0) + 1 FROM tracks WHERE playlist_id = ? HAVING COUNT(*) < ?'
     )
-    .bind(id, playlist_id, url_original, odesli_data, Math.floor(Date.now() / 1000), playlist_id)
+    .bind(id, playlist_id, url_original, odesli_data, Math.floor(Date.now() / 1000), playlist_id, limit)
     .run()
+  return result.meta.changes > 0
+}
+
+export async function getTrackIds(db: D1Database, playlist_id: string): Promise<string[]> {
+  const { results } = await db
+    .prepare('SELECT id FROM tracks WHERE playlist_id = ?')
+    .bind(playlist_id)
+    .all<{ id: string }>()
+  return results.map(r => r.id)
 }
 
 export async function reorderTracks(db: D1Database, playlist_id: string, order: string[]): Promise<void> {

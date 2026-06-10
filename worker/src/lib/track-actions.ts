@@ -1,9 +1,10 @@
-import type { QueueMessage } from '../types'
+import { PLAYLIST_LIMIT, type QueueMessage } from '../types'
 import { insertTrack } from './db'
 import { fetchOdesli, type OdesliData } from './odesli'
 
 type SearchMetadata = { title?: string; artist?: string; artwork?: string }
 
+/** Returns null when the playlist limit was reached (insert refused atomically). */
 export async function addTrack(
   db: D1Database,
   queue: Queue<QueueMessage>,
@@ -11,7 +12,7 @@ export async function addTrack(
   url: string,
   odesliApiKey?: string,
   metadata?: SearchMetadata
-): Promise<{ id: string; url_original: string; odesli_data: OdesliData | { _notFound: true } | null }> {
+): Promise<{ id: string; url_original: string; odesli_data: OdesliData | { _notFound: true } | null } | null> {
   const trackId = crypto.randomUUID()
 
   if (metadata) {
@@ -28,7 +29,8 @@ export async function addTrack(
       },
       _preview: true,
     }
-    await insertTrack(db, trackId, playlistId, url, JSON.stringify(preview))
+    const inserted = await insertTrack(db, trackId, playlistId, url, JSON.stringify(preview), PLAYLIST_LIMIT)
+    if (!inserted) return null
     await queue.send({ trackId, url })
     return { id: trackId, url_original: url, odesli_data: preview as unknown as OdesliData }
   }
@@ -42,7 +44,8 @@ export async function addTrack(
     // Rate-limited or transient error — fall back to queue for eventual resolution
     useQueue = true
   }
-  await insertTrack(db, trackId, playlistId, url, odesliData ? JSON.stringify(odesliData) : null)
+  const inserted = await insertTrack(db, trackId, playlistId, url, odesliData ? JSON.stringify(odesliData) : null, PLAYLIST_LIMIT)
+  if (!inserted) return null
   if (useQueue) await queue.send({ trackId, url })
   return { id: trackId, url_original: url, odesli_data: odesliData }
 }

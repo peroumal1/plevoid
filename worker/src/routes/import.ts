@@ -13,7 +13,7 @@ export const importRoutes = new Hono<{ Bindings: Bindings }>()
 async function runImport(
   c: Context<{ Bindings: Bindings }>,
   resolveId: (url: string) => Promise<string | null>,
-  fetchTracks: (id: string) => Promise<{ urls: string[] }>,
+  fetchTracks: (id: string) => Promise<{ urls: string[]; total?: number }>,
   errorLabel: string
 ) {
   const check = await verifyToken(c.env.plevoid_db, c.req.param('id')!, c.req.header('X-Edit-Token'))
@@ -30,15 +30,18 @@ async function runImport(
   if (slots <= 0) return c.json({ error: PLAYLIST_LIMIT_ERROR }, 400)
 
   let urls: string[]
+  let total: number
   try {
     const result = await fetchTracks(playlistId)
     urls = result.urls
+    // Source playlist may be larger than what the API returned (e.g. Deezer caps at 100)
+    total = result.total ?? urls.length
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : `${errorLabel} error` }, 502)
   }
 
   const toImport = urls.slice(0, slots)
-  const skipped = Math.max(0, urls.length - toImport.length)
+  const skipped = Math.max(0, total - toImport.length)
 
   await addTracks(c.env.plevoid_db, c.env.ODESLI_QUEUE, check.playlist.id, toImport)
 

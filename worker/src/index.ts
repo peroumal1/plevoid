@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import type { Bindings, QueueMessage } from './types'
+import { RETENTION_SECONDS, type Bindings, type QueueMessage } from './types'
 import { playlistRoutes } from './routes/playlists'
 import { trackRoutes } from './routes/tracks'
 import { importRoutes } from './routes/import'
 import { searchRoutes } from './routes/search'
-import { adminRoutes } from './routes/admin'
+import { adminRoutes, checkAdminAuth, adminUnauthorized } from './routes/admin'
 import { fetchOdesli } from './lib/odesli'
 import { updateTrackOdesli, deleteOldPlaylists, getPlaylist, getTrackCount } from './lib/db'
 import pkg from '../package.json'
@@ -21,20 +21,7 @@ app.route('/api/search', searchRoutes)
 app.route('/admin/api', adminRoutes)
 
 app.get('/admin', (c) => {
-  const header = c.req.header('Authorization') ?? ''
-  if (!c.env.ADMIN_TOKEN || !header.startsWith('Basic ')) {
-    return new Response('Unauthorized', {
-      status: 401,
-      headers: { 'WWW-Authenticate': 'Basic realm="Plevoid Admin"' },
-    })
-  }
-  const password = atob(header.slice(6)).split(':').slice(1).join(':')
-  if (password !== c.env.ADMIN_TOKEN) {
-    return new Response('Unauthorized', {
-      status: 401,
-      headers: { 'WWW-Authenticate': 'Basic realm="Plevoid Admin"' },
-    })
-  }
+  if (!checkAdminAuth(c)) return adminUnauthorized()
   return c.env.ASSETS.fetch(new Request(new URL('/admin.html', c.req.url).toString()))
 })
 
@@ -54,7 +41,8 @@ app.get('/p/:id', async (c) => {
   canonical.pathname = `/p/${id}`
   canonical.search = ''
 
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+  const esc = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
   const og = [
     `<meta property="og:title" content="${esc(title)}">`,
     `<meta property="og:description" content="${esc(description)}">`,
@@ -79,14 +67,18 @@ export default {
   async scheduled(_event: ScheduledEvent, env: Bindings): Promise<void> {
     const now = Math.floor(Date.now() / 1000)
 
-    const cutoff = now - 90 * 24 * 60 * 60
+    const cutoff = now - RETENTION_SECONDS
     const deleted = await deleteOldPlaylists(env.plevoid_db, cutoff)
     console.log(`Retention: deleted ${deleted} playlists older than 90 days`)
 
-    // Re-enqueue tracks whose odesli_data is still null after 1 hour (queue message was lost)
-    const stuckCutoff = now - 10 * 60
+    // Re-enqueue tracks still unresolved (NULL or _preview stub) after 30 minutes: the
+    // queue message was lost. 30 min leaves room for large imports plus queue retries to
+    // drain before the cron starts duplicating messages that are still in flight.
+    const stuckCutoff = now - 30 * 60
     const { results: stuck } = await env.plevoid_db
-      .prepare('SELECT id, url_original FROM tracks WHERE odesli_data IS NULL AND added_at < ?')
+      .prepare(
+        "SELECT id, url_original FROM tracks WHERE (odesli_data IS NULL OR json_extract(odesli_data, '$._preview') = 1) AND added_at < ?"
+      )
       .bind(stuckCutoff)
       .all<{ id: string; url_original: string }>()
     await Promise.all(stuck.map(t => env.ODESLI_QUEUE.send({ trackId: t.id, url: t.url_original })))

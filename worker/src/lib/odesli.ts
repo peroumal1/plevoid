@@ -21,7 +21,9 @@ export async function fetchOdesli(
   let res = await fetch(endpoint)
   let cycles = 0
   while (res.status === 429 && waitOnRateLimit && cycles++ < maxWaitCycles) {
-    const delay = parseInt(res.headers.get('retry-after') ?? '60', 10)
+    // Retry-After may be an HTTP date instead of seconds: fall back to 60s if unparseable
+    const parsed = parseInt(res.headers.get('retry-after') ?? '', 10)
+    const delay = Number.isFinite(parsed) && parsed > 0 ? parsed : 60
     await new Promise(r => setTimeout(r, (delay + 5) * 1000))
     res = await fetch(endpoint)
   }

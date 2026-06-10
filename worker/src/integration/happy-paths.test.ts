@@ -121,23 +121,18 @@ describe("Deezer import", () => {
 
 describe("Spotify import", () => {
   it("imports tracks from a public Spotify playlist URL", async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ access_token: "test-token", expires_in: 3600 }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          total: 2,
-          items: [
-            { track: { external_urls: { spotify: "https://open.spotify.com/track/aaa" } } },
-            { track: { external_urls: { spotify: "https://open.spotify.com/track/bbb" } } },
-          ],
-        }),
-      })
-    )
+    const embedData = {
+      props: { pageProps: { state: { data: { entity: { trackList: [
+        { uri: "spotify:track:aaa" },
+        { uri: "spotify:track:bbb" },
+      ] } } } } },
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () =>
+        `<html><script id="__NEXT_DATA__" type="application/json">${JSON.stringify(embedData)}</script></html>`,
+    }))
 
     const res = await SELF.fetch(`https://worker.test/api/playlists/${playlistId}/import/spotify`, {
       method: "POST",

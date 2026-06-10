@@ -481,12 +481,19 @@
       for (const r of results) {
         const item = document.createElement('div')
         item.className = 'suggestion'
-        item.innerHTML = `
-          <img src="${safeUrl(r.artwork)}" alt="">
-          <div>
-            <div class="suggestion-title">${r.title}</div>
-            <div class="suggestion-artist">${r.artist}</div>
-          </div>`
+        // Built via DOM so external metadata (title/artist) is never parsed as HTML
+        const img = document.createElement('img')
+        img.src = safeUrl(r.artwork)
+        img.alt = ''
+        const text = document.createElement('div')
+        const titleDiv = document.createElement('div')
+        titleDiv.className = 'suggestion-title'
+        titleDiv.textContent = r.title
+        const artistDiv = document.createElement('div')
+        artistDiv.className = 'suggestion-artist'
+        artistDiv.textContent = r.artist
+        text.append(titleDiv, artistDiv)
+        item.append(img, text)
         item.addEventListener('mousedown', (e) => {
           e.preventDefault() // keep focus on input so blur doesn't fire first
           pendingUrl = r.url
