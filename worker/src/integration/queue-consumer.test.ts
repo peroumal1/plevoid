@@ -18,13 +18,14 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-// Minimal valid Odesli payload
-const ODESLI_OK = {
+// Minimal valid song.link page — mirrors what fetchOdesli scrapes from __NEXT_DATA__
+const ODESLI_PAGE_DATA = {
   entityUniqueId: 'spotify_song:test',
   pageUrl: 'https://song.link/s/test',
-  linksByPlatform: { spotify: { url: 'https://open.spotify.com/track/test' } },
-  entitiesByUniqueId: { 'spotify_song:test': { title: 'Test Song', artistName: 'Test Artist' } },
+  entityData: { title: 'Test Song', artistName: 'Test Artist' },
+  sections: [{ links: [{ platform: 'spotify', url: 'https://open.spotify.com/track/test' }] }],
 }
+const ODESLI_OK_HTML = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { pageData: ODESLI_PAGE_DATA } } })}</script>`
 
 // 429 mock response — Retry-After: 1 so fake timers only need to advance 6s (1+5)
 const ODESLI_429 = {
@@ -76,7 +77,7 @@ describe("queue consumer", () => {
     const { batch, ack, retry } = makeBatch(trackId, 'https://open.spotify.com/track/test')
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
-      ok: true, status: 200, json: async () => ODESLI_OK,
+      ok: true, status: 200, text: async () => ODESLI_OK_HTML,
     }))
 
     await runConsumer(batch)
@@ -118,7 +119,7 @@ describe("queue consumer", () => {
 
     vi.stubGlobal('fetch', vi.fn()
       .mockResolvedValueOnce(ODESLI_429)
-      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ODESLI_OK })
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => ODESLI_OK_HTML })
     )
 
     await runConsumer(batch)
